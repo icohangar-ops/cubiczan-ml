@@ -1,0 +1,23 @@
+[package]
+name = "cubiczan-ml-py"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Python bindings for Cubiczan ML via PyO3"
+
+[lib]
+name = "cubiczan_ml"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.24", features = ["extension-module"] }
+numpy = "0.24"
+ndarray = { workspace = true }
+cubiczan-ml-core = { path = "../cubiczan-ml-core" }
+cubiczan-ml-nlp = { path = "../cubiczan-ml-nlp" }
+cubiczan-ml-rl = { path = "../cubiczan-ml-rl" }
+cubiczan-ml-dl = { path = "../cubiczan-ml-dl" }
+cubiczan-ml-tf = { path = "../cubiczan-ml-tf" }
+serde_json = { workspace = true }
