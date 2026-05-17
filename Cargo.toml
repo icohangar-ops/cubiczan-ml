@@ -6,6 +6,7 @@ members = [
     "crates/cubiczan-ml-dl",
     "crates/cubiczan-ml-rl",
     "crates/cubiczan-ml-tf",
+    "crates/cubiczan-ml-py",
 ]
 
 [workspace.package]

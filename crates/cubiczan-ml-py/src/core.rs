@@ -154,10 +154,10 @@ pub fn py_bollinger_bands(
 
 /// Annualized realized volatility from close prices.
 #[pyfunction]
-pub fn py_volatility(prices: Vec<f64>, annual_factor: Option<f64>) -> PyResult<f64> {
+#[pyo3(signature = (prices, annual_factor=252.0))]
+pub fn py_volatility(prices: Vec<f64>, annual_factor: f64) -> PyResult<f64> {
     let data = Array1::from_vec(prices);
-    let periods = annual_factor.unwrap_or(252.0);
-    Volatility::realized(&data, periods)
+    Volatility::realized(&data, annual_factor)
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
