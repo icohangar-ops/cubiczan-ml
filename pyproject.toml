@@ -34,3 +34,7 @@ Documentation = "https://github.com/Cubiczan/cubiczan-ml#readme"
 [tool.maturin]
 features = ["pyo3/extension-module"]
 module-name = "cubiczan_ml"
+include = ["README.md"]
+
+[tool.maturin.target.x86_64-unknown-linux-gnu]
+manylinux = "2_34"
