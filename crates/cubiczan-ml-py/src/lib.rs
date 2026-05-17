@@ -18,7 +18,7 @@ mod tf;
 /// - `cubiczan_ml.tf` — TensorFlow session management and bridges
 #[pymodule]
 fn cubiczan_ml(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(version, m)?)?;
+    m.add("version", env!("CARGO_PKG_VERSION"))?;
     m.add_class::<core::PyMovingAverage>()?;
     m.add_class::<core::PyRiskMetrics>()?;
     m.add_class::<core::PyDrawdownTracker>()?;
@@ -57,7 +57,3 @@ fn cubiczan_ml(m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-#[pyfunction]
-fn version() -> &'static str {
-    env!("CARGO_PKG_VERSION")
-}

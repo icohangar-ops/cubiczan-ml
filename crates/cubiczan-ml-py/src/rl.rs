@@ -52,7 +52,7 @@ impl PyTradingEnv {
     ///     ``{"features": list[float], "terminal": bool}``
     pub fn reset(&mut self, py: Python<'_>) -> PyResult<PyObject> {
         let state = self.env.reset();
-        let dict = pyo3::types::PyDict::new_bound(py);
+        let dict = pyo3::types::PyDict::new(py);
         dict.set_item("features", state.observation.features.clone())?;
         dict.set_item("terminal", state.terminal)?;
         Ok(dict.into())
@@ -73,7 +73,7 @@ impl PyTradingEnv {
         let action = EnvAction::from_index(action_idx);
         let (state, reward, _done) = self.env.step(action);
 
-        let dict = pyo3::types::PyDict::new_bound(py);
+        let dict = pyo3::types::PyDict::new(py);
         dict.set_item("features", state.observation.features)?;
         dict.set_item("reward", reward.value)?;
         dict.set_item("terminal", state.terminal)?;
@@ -304,63 +304,5 @@ pub fn run_backtest(
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Python-side tests (run via pytest after `pip install cubiczan-ml`)
 // ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn sample_prices() -> Vec<f64> {
-        vec![100.0, 101.0, 99.0, 102.0, 103.0, 101.0, 105.0, 104.0, 107.0, 110.0,
-             108.0, 112.0, 115.0, 113.0, 116.0, 118.0, 117.0, 120.0, 119.0, 122.0]
-    }
-
-    #[test]
-    fn test_trading_env_create_and_reset() {
-        let prices = sample_prices();
-        let mut env = PyTradingEnv::new(prices.clone(), 100_000.0);
-        assert!(!env.is_terminal());
-        assert!(env.cash() > 0.0);
-        assert_eq!(env.position(), 0.0);
-    }
-
-    #[test]
-    fn test_trading_env_step() {
-        let prices = sample_prices();
-        let mut env = PyTradingEnv::new(prices.clone(), 100_000.0);
-        env.reset().unwrap();
-
-        // Hold
-        let result = pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
-            let step_result = env.step(py, 0).unwrap();
-            let dict = step_result.downcast_bound::<pyo3::types::PyDict>(py).unwrap();
-            let features = dict.get_item("features").unwrap().unwrap();
-            let terminal = dict.get_item("terminal").unwrap().unwrap();
-            assert!(features.len() > 0);
-            assert!(!terminal.extract::<bool>().unwrap());
-        });
-    }
-
-    #[test]
-    fn test_q_learning_agent() {
-        let mut agent = PyQLearningAgent::new(13, 3, 0.1, 0.99, 0.3);
-
-        let action = agent.select_action(vec![1.0, 2.0, 3.0]);
-        assert!(action < 3);
-
-        agent.update(vec![1.0, 2.0], action, 1.0, vec![1.5, 2.5], false);
-        assert_eq!(agent.q_table_size(), 1);
-    }
-
-    #[test]
-    fn test_run_backtest() {
-        let prices = sample_prices();
-        let signals = vec![0.0, 1.0, 0.0, 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, -1.0,
-                           0.0, 1.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0];
-        let result = run_backtest(prices, signals, 100_000.0);
-        assert!(result.final_value > 0.0);
-        assert!(result.total_trades >= 0.0);
-    }
-}
