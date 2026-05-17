@@ -1,0 +1,20 @@
+[package]
+name = "cubiczan-ml-dl"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+cubiczan-ml-core = { path = "../cubiczan-ml-core" }
+candle-core = { workspace = true }
+candle-nn = { workspace = true }
+candle-transformers = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+ndarray = { workspace = true, features = ["serde"] }

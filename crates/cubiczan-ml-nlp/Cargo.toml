@@ -1,0 +1,24 @@
+[package]
+name = "cubiczan-ml-nlp"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Financial NLP module for the Cubiczan ML ecosystem"
+
+[dependencies]
+cubiczan-ml-core = { path = "../cubiczan-ml-core" }
+tokenizers = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+regex = { workspace = true }
+ndarray = { workspace = true }
+
+# Optional: rust-bert for actual model inference
+# Uncomment when tch version conflicts are resolved
+# rust-bert = { version = "0.23", optional = true }
