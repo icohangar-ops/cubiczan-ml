@@ -1,0 +1,33 @@
+[package]
+name = "swarmfi-perps"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "SwarmFi Perps — Rust port. AI agent swarm intelligence for perpetual futures markets."
+readme = "README.md"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+tracing = { workspace = true }
+reqwest = { workspace = true, features = ["json", "blocking"] }
+tokio = { workspace = true, features = ["sync"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }
+
+[lib]
+name = "swarmfi_perps"
+path = "src/lib.rs"
+
+[[bin]]
+name = "swarmfi-perps"
+path = "src/main.rs"
+
+[features]
+default = []

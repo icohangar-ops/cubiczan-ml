@@ -26,8 +26,10 @@ cubiczan-ml/
 │   │   └── HFT flow-matching RL (PPO, market-making)
 │   ├── critmin-oracle/                # CritMin Oracle Rust port
 │   │   └── risk scoring · sentiment · scaling · keccak256
-│   └── consensus-hardening-protocol/    # CHP Rust port
-│       └── state machine · gates · devil's advocate · parity · contracts
+│   ├── consensus-hardening-protocol/    # CHP Rust port
+│   │   └── state machine · gates · devil's advocate · parity · contracts
+│   └── swarmfi-perps/                   # SwarmFi Perps Rust port
+│       └── 9 agents · consensus · dYdX client · mock data
 ```
 
 ## Crates
@@ -136,6 +138,19 @@ Complete Rust port of the Consensus Hardening Protocol decision-governance layer
 | **validators** | Third-party validation for lock progression (PROVISIONAL_LOCK→LOCKED) |
 | **orchestrator** | Full CHP session orchestration: initial session, partner packet ingestion, report rendering |
 
+### `swarmfi-perps` — SwarmFi Perps Rust Port
+
+Complete Rust port of the SwarmFi Perps AI agent swarm intelligence platform. Nine specialized agents analyze perpetual futures markets through stigmergic coordination and adversarial weighted consensus to produce LONG/SHORT/NEUTRAL trading signals.
+
+| Module | Highlights |
+|--------|-----------|
+| **types** | Signal, AgentVote, ConsensusResult, MarketDataBundle, StigmergyBoard, Orderbook, Candle, Trade |
+| **math** | clamp, SMA, sample standard deviation (Bessel-corrected) |
+| **agents** | 9 agents: Funding, Momentum, Volatility, Volume, Orderbook, Liquidation, MeanReversion, Trend, Sentiment (meta-agent) |
+| **consensus** | Adversarial weighted voting, confidence penalization on split signals, stigmergy board management |
+| **pipeline** | Full swarm analysis orchestration, mock data generation, report rendering |
+| **dydx** | dYdX v4 Indexer HTTP client (reqwest), API response types, live market data builder |
+
 ## Quick Start
 
 ### Prerequisites
@@ -155,6 +170,7 @@ cubiczan-ml-rl   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "
 cubiczan-ml-tf   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
 critmin-oracle   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
 consensus-hardening-protocol = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
+swarmfi-perps = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
 ```
 
 ### Build from source
@@ -256,10 +272,10 @@ for episode in 0..500 {
 
 | Metric | Value |
 |--------|-------|
-| Total lines of Rust | ~23,000+ |
-| Source files | 65+ |
-| Crates | 9 |
-| Tests passing | **403 / 403** |
+| Total lines of Rust | ~28,000+ |
+| Source files | 80+ |
+| Crates | 10 |
+| Tests passing | **461 / 461** |
 | Build errors | **0** |
 | Minimum Rust version | 1.80+ (tested 1.95.0) |
 
