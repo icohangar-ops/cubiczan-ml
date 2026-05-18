@@ -30,6 +30,18 @@ cubiczan-ml/
 │   │   └── state machine · gates · devil's advocate · parity · contracts
 │   └── swarmfi-perps/                   # SwarmFi Perps Rust port
 │       └── 9 agents · consensus · dYdX client · mock data
+│   ├── commodity-price-analyzer/       # Commodity Price Analyzer Rust port
+│   │   └── forecasting · signals · seasonal · supply-demand · risk
+│   ├── sec-earnings-workbench/         # SEC Earnings Workbench Rust port
+│   │   └── parser · sentiment · risk · financials · insider · earnings
+│   ├── minescope-signal/               # Minescope Signal Rust port
+│   │   └── sensors · anomaly · FFT · grading · equipment · processing
+│   ├── closed-loop-finance/            # Closed-Loop Finance Rust port
+│   │   └── observe · decide · execute · learn · PID control · risk
+│   ├── courtvision-ai/                 # CourtVision AI Rust port
+│   │   └── stats · predictions · player · betting · ELO
+│   └── greenverify-ai/                 # GreenVerify AI Rust port
+│       └── environmental · social · governance · verification · bonds
 ```
 
 ## Crates
@@ -150,6 +162,88 @@ Complete Rust port of the SwarmFi Perps AI agent swarm intelligence platform. Ni
 | **consensus** | Adversarial weighted voting, confidence penalization on split signals, stigmergy board management |
 | **pipeline** | Full swarm analysis orchestration, mock data generation, report rendering |
 | **dydx** | dYdX v4 Indexer HTTP client (reqwest), API response types, live market data builder |
+| **websocket** | dYdX v4 WebSocket with auto-reconnect, incremental orderbook, broadcast channels |
+| **arbitrage** | Cross-exchange signal comparison (dYdX, GMX, Synthetix), fee-adjusted profit |
+| **backtest** | Historical signal analysis, Sharpe/Sortino, drawdown, equity curve |
+| **alerts** | Telegram & Discord webhook dispatch, threshold monitoring, rate limiting |
+| **vault** | MegaVault PnL tracking, NAV analytics, yield vs BTC/ETH benchmarks |
+| **compliance** | Regulatory risk scoring (6 dimensions), market manipulation detection |
+| **mobile** | REST API types for React Native companion, dashboard aggregation |
+
+### `commodity-price-analyzer` — Commodity Price Analysis
+
+Multi-commodity price prediction, technical signal generation, seasonal analysis, and supply-demand modeling for metals and energy markets.
+
+| Module | Highlights |
+|--------|------------|
+| **prices** | Price database, VWAP, returns computation, mock data for 12 commodity types |
+| **forecast** | Linear regression, exponential smoothing (single/double/triple), ensemble |
+| **signals** | RSI, MACD, Bollinger Bands, ATR, Stochastic, composite scoring, position sizing |
+| **seasonal** | Monthly patterns, day-of-week effects, inventory cycle, seasonal strength |
+| **supply_demand** | Inventory tracking, production trends, consumption demand, geopolitical risk |
+| **risk** | VaR (historical), CVaR, max drawdown, correlation, volatility regime detection |
+
+### `sec-earnings-workbench` — SEC & Earnings Analysis
+
+SEC filing parser and earnings analysis engine. Extracts financial data from 10-K/10-Q, scores sentiment, detects risk factors, and tracks insider trading.
+
+| Module | Highlights |
+|--------|------------|
+| **parser** | 10-K/10-Q/8-K section extraction, financial figures, table parsing |
+| **sentiment** | Forward-looking statement detection, management tone, risk disclosure intensity |
+| **risk** | Risk factor extraction, 7 categories, severity scoring, novelty detection |
+| **financials** | Income statement, balance sheet, cash flow extraction, ratio computation |
+| **insider** | Form 4 parsing, transaction classification, aggregation, sentiment scoring |
+| **earnings** | Surprise computation, Beat/Miss classification, consistency, guidance tracking |
+
+### `minescope-signal` — Mining Signal Processing
+
+Real-time sensor data analysis for mining operations — anomaly detection, signal processing, mineral grade estimation, and equipment health monitoring.
+
+| Module | Highlights |
+|--------|------------|
+| **sensors** | Sensor database, data quality, sensor fusion, resampling, mock data |
+| **anomaly** | Z-score, IQR, rate-of-change, multi-sensor correlation, severity classification |
+| **fft** | DFT, frequency spectrum, dominant frequency, band-pass filtering, spectral centroid |
+| **grading** | Linear proxy models, multi-signal weighted grades, cut-off optimization |
+| **equipment** | Vibration baseline, temperature trending, health score (0-100), maintenance |
+| **processing** | Stage benchmarks, efficiency scoring, throughput, bottleneck detection |
+
+### `closed-loop-finance` — Autonomous Finance Loop
+
+ML-driven closed-loop system: Observe market state, Decide on actions, Execute trades, Learn from outcomes. PID control for risk/leverage/exposure targets.
+
+| Module | Highlights |
+|--------|------------|
+| **observer** | Market regime detection (6 regimes), volatility classification, trend strength |
+| **decider** | Multi-factor scoring, position sizing, confidence threshold |
+| **executor** | Order simulation, slippage, fees, market impact, partial fills |
+| **learner** | Outcome tracking, strategy adaptation, regime-specific learning |
+| **controller** | PID-like control, feedback loops, stability checks |
+| **risk_manager** | VaR/CVaR, drawdown control, leverage scaling, circuit breakers |
+
+### `courtvision-ai` — Sports Analytics
+
+Multi-sport prediction engine with ELO ratings, player projections, and betting analysis.
+
+| Module | Highlights |
+|--------|------------|
+| **stats** | Per-game averages, advanced metrics, strength of schedule |
+| **predictions** | ELO rating, spread prediction, over/under, multi-factor model |
+| **player** | Ceiling/floor/expected projections, matchup adjustments, fatigue |
+| **betting** | Line movement, value detection, Kelly criterion, bankroll management |
+
+### `greenverify-ai` — ESG Verification & Scoring
+
+ESG analysis with greenwashing detection, green bond verification, and carbon credit quality assessment.
+
+| Module | Highlights |
+|--------|------------|
+| **environmental** | Carbon footprint, energy transition, water stress, circular economy |
+| **social** | Workforce diversity, employee satisfaction, data privacy, supply chain |
+| **governance** | Board independence, executive compensation, audit quality, shareholder rights |
+| **verification** | Greenwashing detection, evidence quality, cross-reference, red flags |
+| **bonds** | Green bond impact, greenium analysis, carbon credit quality, additionality |
 
 ## Quick Start
 
@@ -272,10 +366,10 @@ for episode in 0..500 {
 
 | Metric | Value |
 |--------|-------|
-| Total lines of Rust | ~28,000+ |
-| Source files | 80+ |
-| Crates | 10 |
-| Tests passing | **461 / 461** |
+| Total lines of Rust | ~61,000+ |
+| Source files | 130+ |
+| Crates | 16 |
+| Tests passing | **1,515 / 1,515** |
 | Build errors | **0** |
 | Minimum Rust version | 1.80+ (tested 1.95.0) |
 
@@ -283,16 +377,16 @@ for episode in 0..500 {
 
 This shared ML layer is designed to be integrated into the following Cubiczan ecosystem projects:
 
-- **Commodity-Price-Analyzer** — Price prediction and signal generation
-- **closed-loop-finance** — Autonomous finance loop with ML-driven decisions
+- **Commodity-Price-Analyzer** — Price prediction and signal generation (Rust port complete)
+- **closed-loop-finance** — Autonomous finance loop with ML-driven decisions (Rust port complete)
 - **FinFlowRL** — RL-based trading strategies (Rust port complete)
 - **critmin-oracle** — Critical minerals blockchain risk oracle (Rust port complete)
-- **minescope-signal** — Mining signal processing and anomaly detection
-- **sec-earnings-workbench** — SEC filing NLP analysis
+- **minescope-signal** — Mining signal processing and anomaly detection (Rust port complete)
+- **sec-earnings-workbench** — SEC filing NLP analysis (Rust port complete)
 - **Stellar-critical-metal-traceability** — Supply chain traceability ML
 - **consensus-hardening-protocol** — Multi-agent decision governance (Rust port complete)
-- **courtvision-ai** — Sports analytics with ML
-- **greenverify-ai** — ESG verification and scoring
+- **courtvision-ai** — Sports analytics with ML (Rust port complete)
+- **greenverify-ai** — ESG verification and scoring (Rust port complete)
 
 ## License
 
