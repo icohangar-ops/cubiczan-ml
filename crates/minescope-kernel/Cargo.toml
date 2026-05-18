@@ -1,0 +1,14 @@
+[package]
+name = "minescope-kernel"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Pure computation kernels for mineral prospectivity scoring, risk assessment, and price simulation"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }

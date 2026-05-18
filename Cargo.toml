@@ -18,6 +18,9 @@ members = [
     "crates/minescope-signal",
     "crates/commodity-price-analyzer",
     "crates/autonomous-business-os",
+    "crates/cubiczan-swarm-pack",
+    "crates/minescope-kernel",
+    "crates/metabocommand-kernel",
 ]
 
 [workspace.package]
