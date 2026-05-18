@@ -3,8 +3,7 @@
 use std::collections::{HashMap, HashSet};
 use crate::models::*;
 use crate::payloads::validate_payload_envelope;
-
-pub const MAX_ROUNDS: u32 = 5;
+use crate::rounds::MAX_ROUNDS;
 
 pub const ORIGIN_REQUIRED_SECTIONS: &[&str] = &[
     "1. CORE_PROBLEM_STATEMENT",
@@ -67,6 +66,7 @@ pub struct ScoringOption {
     pub leverage: i32,
     pub risk: i32,
     pub winner: bool,
+    pub elimination_note: String, // required for non-winners
 }
 
 impl ScoringOption {
@@ -80,6 +80,10 @@ impl ScoringOption {
             if !(0..=10).contains(&val) {
                 errors.push(format!("{}: {} must be 0-10", self.name, label));
             }
+        }
+        // Non-winners must have elimination_note
+        if !self.winner && self.elimination_note.is_empty() {
+            errors.push(format!("{}: elimination_note is required for non-winners", self.name));
         }
         errors
     }
@@ -137,6 +141,15 @@ impl PartnerPacket {
         if self.state_snapshot.round_number_u32() == MAX_ROUNDS {
             if self.item_agreements.iter().any(|a| a.status == SessionStatus::PROVISIONAL) {
                 errors.push("Round 5 cannot return PROVISIONAL".into());
+            }
+            // R5 PROVISIONAL_LOCK without third-party → force UNRESOLVED
+            for a in &self.item_agreements {
+                if a.status == SessionStatus::PROVISIONAL_LOCK && a.third_party_status.is_empty() {
+                    errors.push(format!(
+                        "{}: PROVISIONAL_LOCK at Round 5 without third-party validation → must resolve to UNRESOLVED",
+                        a.item
+                    ));
+                }
             }
         }
         errors
@@ -237,15 +250,27 @@ impl ConvergenceClosure {
             .iter()
             .map(|v| serde_json::to_value(v).unwrap_or(serde_json::Value::Null))
             .collect();
+
+        // Add closure audit
+        let audit = case.closure_audit.clone().unwrap_or_default();
+
+        // If audit has accepted risks, tag as REQUIRES_HUMAN_VERIFICATION
+        let status = if audit.has_accepted_risks() && case.status != SessionStatus::HALT {
+            SessionStatus::REQUIRES_HUMAN_VERIFICATION
+        } else {
+            case.status.clone()
+        };
+
         Self {
-            status: case.status.clone(),
+            status,
             foundation_score: case.foundation_score,
             locked_decisions: case.locked_decisions.clone(),
-            blind_spots_accepted: case.blind_spots.clone(),
-            vulnerabilities_accepted_risk: case.structural_vulnerabilities.clone(),
+            blind_spots_resolved: audit.blind_spots_resolved,
+            blind_spots_accepted: audit.blind_spots_accepted,
+            vulnerabilities_addressed: audit.vulnerabilities_addressed,
+            vulnerabilities_accepted_risk: audit.vulnerabilities_accepted_risk,
             session_urls: urls,
             third_party_log: tp_log,
-            ..Default::default()
         }
     }
 }
@@ -307,7 +332,7 @@ impl VerificationChecklist {
                     "MISSING context check".into()
                 },
                 if let Some(ref mp) = case.model_parity {
-                    if mp.delta != "SIGNIFICANT" {
+                    if mp.delta != ModelParityDelta::SIGNIFICANT {
                         "Model parity gate passed".into()
                     } else {
                         "MISSING model parity pass".into()
@@ -344,10 +369,10 @@ impl VerificationChecklist {
                 } else {
                     "MISSING state snapshot".into()
                 },
-                if !case.vcl_diagnoses.is_empty() {
-                    "VCL present".into()
+                if !case.constraint_diagnoses.is_empty() {
+                    "Constraint altitude tagged".into()
                 } else {
-                    "MISSING VCL diagnosis".into()
+                    "MISSING constraint diagnosis".into()
                 },
             ],
             truth: vec![
@@ -415,6 +440,29 @@ impl VerificationChecklist {
 }
 
 // ============================================================================
+// Section limit checking
+// ============================================================================
+
+pub fn check_section_limits(packet: &PartnerPacket, limits: &SectionLimits) -> Vec<String> {
+    let mut errors = Vec::new();
+
+    // Check objections count
+    if packet.objections.len() > limits.max_objections {
+        errors.push(format!("OBJECTIONS exceeds max {} — tighten next round", limits.max_objections));
+    }
+
+    // Check winner framing sentence count
+    let framing_sentences = packet.winner_framing.split(&['.', '!', '?'][..])
+        .filter(|s| !s.trim().is_empty()).count();
+    if framing_sentences > limits.max_winner_framing_sentences {
+        errors.push(format!("WINNER_FRAMING has {} sentences, max {} — tighten next round",
+            framing_sentences, limits.max_winner_framing_sentences));
+    }
+
+    errors
+}
+
+// ============================================================================
 // require_ascii
 // ============================================================================
 
@@ -455,18 +503,39 @@ mod tests {
     }
 
     #[test]
-    fn test_scoring_option_valid() {
+    fn test_scoring_option_valid_winner() {
         let s = ScoringOption {
-            name: "A".into(), clarity: 7, leverage: 8, risk: 5, winner: false,
+            name: "A".into(), clarity: 7, leverage: 8, risk: 5, winner: true,
+            elimination_note: String::new(),
         };
         assert!(s.validate().is_empty());
         assert_eq!(s.total(), 20);
     }
 
     #[test]
+    fn test_scoring_option_valid_non_winner_with_note() {
+        let s = ScoringOption {
+            name: "B".into(), clarity: 5, leverage: 4, risk: 3, winner: false,
+            elimination_note: "Lower clarity and leverage.".into(),
+        };
+        assert!(s.validate().is_empty());
+    }
+
+    #[test]
+    fn test_scoring_option_non_winner_missing_elimination_note() {
+        let s = ScoringOption {
+            name: "B".into(), clarity: 5, leverage: 4, risk: 3, winner: false,
+            elimination_note: String::new(),
+        };
+        let errors = s.validate();
+        assert!(errors.iter().any(|e| e.contains("elimination_note is required for non-winners")));
+    }
+
+    #[test]
     fn test_scoring_option_out_of_range() {
         let s = ScoringOption {
-            name: "A".into(), clarity: 11, leverage: 5, risk: 3, winner: false,
+            name: "A".into(), clarity: 11, leverage: 5, risk: 3, winner: true,
+            elimination_note: String::new(),
         };
         assert!(!s.validate().is_empty());
     }
@@ -489,5 +558,239 @@ mod tests {
         let cl = VerificationChecklist::run(&case, "");
         let failures = cl.failures();
         assert!(!failures.is_empty());
+    }
+
+    #[test]
+    fn test_verification_checklist_constraint_diagnosis_tagged() {
+        let mut case = DecisionCase::default();
+        case.constraint_diagnoses.push(ConstraintDiagnosis {
+            item: "i1".into(),
+            symptom_altitude: ConstraintAltitude::TACTICAL,
+            constraint_altitude: ConstraintAltitude::STRUCTURAL,
+            diagnosis: "Fix structural first.".into(),
+        });
+        let cl = VerificationChecklist::run(&case, "");
+        assert!(cl.contract.iter().any(|c| c.contains("Constraint altitude tagged")));
+        assert!(!cl.contract.iter().any(|c| c.contains("MISSING constraint")));
+    }
+
+    #[test]
+    fn test_verification_checklist_missing_constraint_diagnosis() {
+        let case = DecisionCase::default();
+        let cl = VerificationChecklist::run(&case, "");
+        assert!(cl.contract.iter().any(|c| c.contains("MISSING constraint diagnosis")));
+    }
+
+    #[test]
+    fn test_r5_provisional_lock_without_third_party_error() {
+        let packet = PartnerPacket {
+            item_agreements: vec![ItemAgreement {
+                item: "decision-x".into(),
+                score: 92,
+                status: SessionStatus::PROVISIONAL_LOCK,
+                third_party_status: String::new(), // missing!
+                ..Default::default()
+            }],
+            winner_framing: String::new(),
+            scoring_table: vec![
+                ScoringOption {
+                    name: "A".into(), clarity: 8, leverage: 9, risk: 7, winner: true,
+                    elimination_note: String::new(),
+                },
+                ScoringOption {
+                    name: "B".into(), clarity: 5, leverage: 4, risk: 3, winner: false,
+                    elimination_note: "Lower scores.".into(),
+                },
+            ],
+            objections: vec![],
+            frameworks: vec![],
+            convergence_plan: vec![],
+            state_snapshot: StateSnapshot::new(Phase::Spec, MAX_ROUNDS, SessionStatus::PROVISIONAL_LOCK, "echo"),
+            raw_payload: String::new(),
+        };
+        let errors = packet.validate();
+        assert!(errors.iter().any(|e| e.contains("PROVISIONAL_LOCK at Round 5 without third-party")));
+    }
+
+    #[test]
+    fn test_r5_provisional_lock_with_third_party_ok() {
+        let packet = PartnerPacket {
+            item_agreements: vec![ItemAgreement {
+                item: "decision-x".into(),
+                score: 92,
+                status: SessionStatus::PROVISIONAL_LOCK,
+                third_party_status: "CONFIRMED".into(),
+                ..Default::default()
+            }],
+            winner_framing: String::new(),
+            scoring_table: vec![
+                ScoringOption {
+                    name: "A".into(), clarity: 8, leverage: 9, risk: 7, winner: true,
+                    elimination_note: String::new(),
+                },
+                ScoringOption {
+                    name: "B".into(), clarity: 5, leverage: 4, risk: 3, winner: false,
+                    elimination_note: "Lower scores.".into(),
+                },
+            ],
+            objections: vec![],
+            frameworks: vec![],
+            convergence_plan: vec![],
+            state_snapshot: StateSnapshot::new(Phase::Spec, MAX_ROUNDS, SessionStatus::PROVISIONAL_LOCK, "echo"),
+            raw_payload: String::new(),
+        };
+        let errors = packet.validate();
+        assert!(!errors.iter().any(|e| e.contains("PROVISIONAL_LOCK at Round 5 without third-party")));
+    }
+
+    // --- Section limits tests ---
+
+    #[test]
+    fn test_section_limits_objections_exceeded() {
+        let packet = PartnerPacket {
+            item_agreements: vec![],
+            winner_framing: String::new(),
+            scoring_table: vec![
+                ScoringOption {
+                    name: "A".into(), clarity: 8, leverage: 8, risk: 8, winner: true,
+                    elimination_note: String::new(),
+                },
+                ScoringOption {
+                    name: "B".into(), clarity: 1, leverage: 1, risk: 1, winner: false,
+                    elimination_note: "Low.".into(),
+                },
+            ],
+            objections: vec!["obj1".into(), "obj2".into(), "obj3".into(), "obj4".into(), "obj5".into(), "obj6".into()],
+            frameworks: vec![],
+            convergence_plan: vec![],
+            state_snapshot: StateSnapshot::new(Phase::Spec, 1, SessionStatus::EXPLORING, "echo"),
+            raw_payload: String::new(),
+        };
+        let limits = SectionLimits::default(); // max_objections = 5
+        let errors = check_section_limits(&packet, &limits);
+        assert!(errors.iter().any(|e| e.contains("OBJECTIONS exceeds max 5")));
+    }
+
+    #[test]
+    fn test_section_limits_framing_exceeded() {
+        let packet = PartnerPacket {
+            item_agreements: vec![],
+            winner_framing: "Sentence one. Sentence two. Sentence three. Sentence four. Sentence five.".into(),
+            scoring_table: vec![
+                ScoringOption {
+                    name: "A".into(), clarity: 8, leverage: 8, risk: 8, winner: true,
+                    elimination_note: String::new(),
+                },
+                ScoringOption {
+                    name: "B".into(), clarity: 1, leverage: 1, risk: 1, winner: false,
+                    elimination_note: "Low.".into(),
+                },
+            ],
+            objections: vec![],
+            frameworks: vec![],
+            convergence_plan: vec![],
+            state_snapshot: StateSnapshot::new(Phase::Spec, 1, SessionStatus::EXPLORING, "echo"),
+            raw_payload: String::new(),
+        };
+        let limits = SectionLimits::default(); // max_winner_framing_sentences = 4
+        let errors = check_section_limits(&packet, &limits);
+        assert!(errors.iter().any(|e| e.contains("WINNER_FRAMING has 5 sentences")));
+    }
+
+    #[test]
+    fn test_section_limits_within_bounds() {
+        let packet = PartnerPacket {
+            item_agreements: vec![],
+            winner_framing: "One sentence. Two sentences.".into(),
+            scoring_table: vec![
+                ScoringOption {
+                    name: "A".into(), clarity: 8, leverage: 8, risk: 8, winner: true,
+                    elimination_note: String::new(),
+                },
+                ScoringOption {
+                    name: "B".into(), clarity: 1, leverage: 1, risk: 1, winner: false,
+                    elimination_note: "Low.".into(),
+                },
+            ],
+            objections: vec!["obj1".into(), "obj2".into()],
+            frameworks: vec![],
+            convergence_plan: vec![],
+            state_snapshot: StateSnapshot::new(Phase::Spec, 1, SessionStatus::EXPLORING, "echo"),
+            raw_payload: String::new(),
+        };
+        let limits = SectionLimits::default();
+        let errors = check_section_limits(&packet, &limits);
+        assert!(errors.is_empty());
+    }
+
+    // --- ConvergenceClosure tests ---
+
+    #[test]
+    fn test_convergence_closure_from_case_no_audit() {
+        let case = DecisionCase::new("dc-1", "Test", "finance", "alice");
+        let closure = ConvergenceClosure::from_case(&case, "url1", "url2");
+        assert_eq!(closure.status, SessionStatus::EXPLORING);
+        assert!(closure.blind_spots_resolved.is_empty());
+    }
+
+    #[test]
+    fn test_convergence_closure_with_accepted_risks() {
+        let mut case = DecisionCase::new("dc-1", "Test", "finance", "alice");
+        case.status = SessionStatus::CONVERGED;
+        let mut audit = ClosureAudit::default();
+        audit.vulnerabilities_accepted_risk.push("risk1".into());
+        case.closure_audit = Some(audit);
+
+        let closure = ConvergenceClosure::from_case(&case, "url1", "url2");
+        // Should be REQUIRES_HUMAN_VERIFICATION because of accepted risks
+        assert_eq!(closure.status, SessionStatus::REQUIRES_HUMAN_VERIFICATION);
+        assert!(closure.vulnerabilities_accepted_risk.contains(&"risk1".to_string()));
+    }
+
+    #[test]
+    fn test_convergence_closure_halt_not_overridden() {
+        let mut case = DecisionCase::new("dc-1", "Test", "finance", "alice");
+        case.status = SessionStatus::HALT;
+        let mut audit = ClosureAudit::default();
+        audit.vulnerabilities_accepted_risk.push("risk1".into());
+        case.closure_audit = Some(audit);
+
+        let closure = ConvergenceClosure::from_case(&case, "url1", "url2");
+        // HALT status should not be overridden
+        assert_eq!(closure.status, SessionStatus::HALT);
+    }
+
+    #[test]
+    fn test_convergence_closure_with_resolved_blind_spots() {
+        let mut case = DecisionCase::new("dc-1", "Test", "finance", "alice");
+        case.status = SessionStatus::CONVERGED;
+        let mut audit = ClosureAudit::default();
+        audit.blind_spots_resolved.push("blind1".into());
+        audit.blind_spots_accepted.push("blind2".into());
+        audit.vulnerabilities_addressed.push("vuln1".into());
+        case.closure_audit = Some(audit);
+
+        let closure = ConvergenceClosure::from_case(&case, "url1", "url2");
+        assert!(closure.blind_spots_resolved.contains(&"blind1".to_string()));
+        assert!(closure.blind_spots_accepted.contains(&"blind2".to_string()));
+        assert!(closure.vulnerabilities_addressed.contains(&"vuln1".to_string()));
+        // No accepted risks → status stays as-is
+        assert_eq!(closure.status, SessionStatus::CONVERGED);
+    }
+
+    #[test]
+    fn test_convergence_closure_default() {
+        let closure = ConvergenceClosure::default();
+        assert_eq!(closure.status, SessionStatus::EXPLORING);
+        assert!(closure.locked_decisions.is_empty());
+        assert!(closure.session_urls.is_empty());
+    }
+
+    #[test]
+    fn test_convergence_closure_urls() {
+        let case = DecisionCase::new("dc-1", "Test", "finance", "alice");
+        let closure = ConvergenceClosure::from_case(&case, "http://origin", "http://partner");
+        assert_eq!(closure.session_urls.get("Origin").unwrap(), "http://origin");
+        assert_eq!(closure.session_urls.get("Partner").unwrap(), "http://partner");
     }
 }

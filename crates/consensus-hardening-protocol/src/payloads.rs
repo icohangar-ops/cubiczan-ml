@@ -1,6 +1,7 @@
 //! Payload-integrity helpers for CHP packet exchange.
 
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct PayloadEnvelope {
@@ -65,6 +66,56 @@ pub fn extract_payload_id(rendered: &str) -> Option<String> {
     Some(raw.trim().to_string())
 }
 
+// ============================================================================
+// EchoStatus & PayloadValidator
+// ============================================================================
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EchoStatus {
+    CONFIRMED,
+    MISMATCH,
+    MISSING,
+}
+
+pub struct PayloadValidator;
+
+impl PayloadValidator {
+    pub fn validate_echo(received_id: &str, expected_id: &str) -> EchoStatus {
+        if received_id.is_empty() || expected_id.is_empty() {
+            return EchoStatus::MISSING;
+        }
+        if received_id == expected_id {
+            EchoStatus::CONFIRMED
+        } else {
+            EchoStatus::MISMATCH
+        }
+    }
+
+    pub fn on_mismatch(route: &str) -> (String, String) {
+        let new_id = make_payload_id();
+        let echo = format!("[{}] [{}] CONFIRMED", route, new_id);
+        (new_id, echo)
+    }
+
+    pub fn on_missing_marker(route: &str) -> (String, String) {
+        let new_id = make_payload_id();
+        let echo = format!("[{}] [{}] CONFIRMED", route, new_id);
+        (new_id, echo)
+    }
+
+    /// Check that echo is confirmed before allowing state advancement
+    pub fn gate(payload_echo: &str, expected_route: &str, expected_id: &str) -> Result<(), String> {
+        let expected_echo = format!("[{}] [{}] CONFIRMED", expected_route, expected_id);
+        if payload_echo.trim() == expected_echo {
+            Ok(())
+        } else if payload_echo.is_empty() {
+            Err("PAYLOAD_ECHO is missing — cannot advance state".into())
+        } else {
+            Err(format!("PAYLOAD_ECHO mismatch: expected '{}', got '{}'", expected_echo, payload_echo.trim()))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -105,5 +156,85 @@ mod tests {
         let id = make_payload_id();
         assert_eq!(id.len(), 6);
         assert!(id.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()));
+    }
+
+    // --- EchoStatus tests ---
+
+    #[test]
+    fn test_validate_echo_confirmed() {
+        assert_eq!(PayloadValidator::validate_echo("ABC123", "ABC123"), EchoStatus::CONFIRMED);
+    }
+
+    #[test]
+    fn test_validate_echo_mismatch() {
+        assert_eq!(PayloadValidator::validate_echo("ABC123", "XYZ789"), EchoStatus::MISMATCH);
+    }
+
+    #[test]
+    fn test_validate_echo_missing_received_empty() {
+        assert_eq!(PayloadValidator::validate_echo("", "ABC123"), EchoStatus::MISSING);
+    }
+
+    #[test]
+    fn test_validate_echo_missing_expected_empty() {
+        assert_eq!(PayloadValidator::validate_echo("ABC123", ""), EchoStatus::MISSING);
+    }
+
+    #[test]
+    fn test_validate_echo_missing_both_empty() {
+        assert_eq!(PayloadValidator::validate_echo("", ""), EchoStatus::MISSING);
+    }
+
+    // --- PayloadValidator::on_mismatch tests ---
+
+    #[test]
+    fn test_on_mismatch_returns_new_id_and_echo() {
+        let (id, echo) = PayloadValidator::on_mismatch("RX");
+        assert_eq!(id.len(), 6);
+        assert_eq!(echo, format!("[RX] [{}] CONFIRMED", id));
+    }
+
+    #[test]
+    fn test_on_missing_marker_returns_new_id_and_echo() {
+        let (id, echo) = PayloadValidator::on_missing_marker("TX");
+        assert_eq!(id.len(), 6);
+        assert_eq!(echo, format!("[TX] [{}] CONFIRMED", id));
+    }
+
+    // --- PayloadValidator::gate tests ---
+
+    #[test]
+    fn test_gate_pass() {
+        let result = PayloadValidator::gate("[RX] [ABC123] CONFIRMED", "RX", "ABC123");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_gate_fail_empty() {
+        let result = PayloadValidator::gate("", "RX", "ABC123");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("missing"));
+    }
+
+    #[test]
+    fn test_gate_fail_mismatch() {
+        let result = PayloadValidator::gate("[RX] [WRONG] CONFIRMED", "RX", "ABC123");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("mismatch"));
+    }
+
+    #[test]
+    fn test_gate_pass_with_whitespace() {
+        let result = PayloadValidator::gate("  [RX] [ABC123] CONFIRMED  ", "RX", "ABC123");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_echo_status_serde() {
+        for status in [EchoStatus::CONFIRMED, EchoStatus::MISMATCH, EchoStatus::MISSING] {
+            let json = serde_json::to_string(&status).unwrap();
+            let restored: EchoStatus = serde_json::from_str(&json).unwrap();
+            assert_eq!(status, restored);
+        }
     }
 }

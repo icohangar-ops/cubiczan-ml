@@ -20,6 +20,7 @@ pub mod registry;
 pub mod contracts;
 pub mod orchestrator;
 pub mod context;
+pub mod parser;
 
 pub use models::*;
 pub use gates::*;
@@ -34,3 +35,4 @@ pub use registry::*;
 pub use contracts::*;
 pub use orchestrator::*;
 pub use context::*;
+pub use parser::*;

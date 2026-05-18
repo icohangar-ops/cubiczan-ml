@@ -45,7 +45,7 @@ pub fn build_round3_devils_advocate(case: &DecisionCase) -> DevilsAdvocateRound 
     }
 }
 
-pub fn build_vcl_diagnoses(case: &DecisionCase) -> Vec<VCLDiagnosis> {
+pub fn build_constraint_diagnoses(case: &DecisionCase) -> Vec<ConstraintDiagnosis> {
     let Some(dossier) = &case.dossier else {
         return Vec::new();
     };
@@ -54,17 +54,14 @@ pub fn build_vcl_diagnoses(case: &DecisionCase) -> Vec<VCLDiagnosis> {
     } else {
         vec![&case.title]
     };
-    let constraint = dossier
-        .constraints
-        .first()
-        .cloned()
+    let constraint = dossier.constraints.first().cloned()
         .unwrap_or_else(|| "No governing constraint was supplied.".into());
 
-    items.iter().take(5).map(|item| VCLDiagnosis {
+    items.iter().take(5).map(|item| ConstraintDiagnosis {
         item: (**item).clone(),
-        symptom_altitude: "R2 Task".into(),
-        constraint_altitude: "R4 System".into(),
-        diagnosis: format!("Lower task fixes fail unless the system constraint is handled first: {}", constraint),
+        symptom_altitude: ConstraintAltitude::TACTICAL,
+        constraint_altitude: ConstraintAltitude::STRUCTURAL,
+        diagnosis: format!("Lower tactical fixes fail unless the structural constraint is handled first: {}", constraint),
     }).collect()
 }
 
@@ -95,6 +92,11 @@ pub fn build_state_snapshot(
     blind_spots.insert("Origin".into(), case.blind_spots.clone());
     blind_spots.insert("Partner".into(), Vec::new());
 
+    // Build constraint diagnosis map from case diagnoses
+    let constraint_diagnosis: HashMap<String, ConstraintDiagnosis> = case.constraint_diagnoses.iter()
+        .map(|cd| (cd.item.clone(), cd.clone()))
+        .collect();
+
     StateSnapshot {
         phase: phase.unwrap_or(case.current_phase),
         round_number: format!("{}/5", round_number.unwrap_or(case.current_round)),
@@ -108,6 +110,7 @@ pub fn build_state_snapshot(
         blind_spots_acknowledged: blind_spots,
         structural_vulnerabilities: case.structural_vulnerabilities.clone(),
         third_party_pending: pending,
+        constraint_diagnosis,
     }
 }
 
@@ -155,20 +158,64 @@ mod tests {
     }
 
     #[test]
-    fn test_build_vcl_diagnoses_empty() {
+    fn test_build_constraint_diagnoses_empty() {
         let case = DecisionCase::default();
-        assert!(build_vcl_diagnoses(&case).is_empty());
+        assert!(build_constraint_diagnoses(&case).is_empty());
     }
 
     #[test]
-    fn test_build_vcl_diagnoses_with_dossier() {
+    fn test_build_constraint_diagnoses_with_dossier() {
         let mut case = DecisionCase::new("dc-1", "Test", "finance", "alice");
         case.dossier = Some(Dossier {
             scope: vec!["item1".into(), "item2".into()],
             constraints: vec!["constraint_x".into()],
             ..Default::default()
         });
-        let diagnoses = build_vcl_diagnoses(&case);
+        let diagnoses = build_constraint_diagnoses(&case);
         assert_eq!(diagnoses.len(), 2);
+        assert_eq!(diagnoses[0].symptom_altitude, ConstraintAltitude::TACTICAL);
+        assert_eq!(diagnoses[0].constraint_altitude, ConstraintAltitude::STRUCTURAL);
+        assert!(diagnoses[0].diagnosis.contains("constraint_x"));
+    }
+
+    #[test]
+    fn test_build_constraint_diagnoses_no_scope() {
+        let mut case = DecisionCase::new("dc-1", "Test Title", "finance", "alice");
+        case.dossier = Some(Dossier {
+            core_problem: "Problem".into(),
+            goal_state: vec!["g".into()],
+            current_state: vec!["c".into()],
+            constraints: vec!["con".into()],
+            ..Default::default()
+        });
+        let diagnoses = build_constraint_diagnoses(&case);
+        assert_eq!(diagnoses.len(), 1);
+        assert_eq!(diagnoses[0].item, "Test Title");
+    }
+
+    #[test]
+    fn test_build_constraint_diagnoses_no_constraint() {
+        let mut case = DecisionCase::new("dc-1", "Test", "finance", "alice");
+        case.dossier = Some(Dossier {
+            scope: vec!["item1".into()],
+            constraints: vec![],
+            ..Default::default()
+        });
+        let diagnoses = build_constraint_diagnoses(&case);
+        assert_eq!(diagnoses.len(), 1);
+        assert!(diagnoses[0].diagnosis.contains("No governing constraint"));
+    }
+
+    #[test]
+    fn test_build_state_snapshot_includes_constraint_diagnosis() {
+        let mut case = DecisionCase::new("dc-1", "Test", "finance", "alice");
+        case.constraint_diagnoses.push(ConstraintDiagnosis {
+            item: "scope1".into(),
+            symptom_altitude: ConstraintAltitude::TACTICAL,
+            constraint_altitude: ConstraintAltitude::STRUCTURAL,
+            diagnosis: "Fix structural first.".into(),
+        });
+        let snapshot = build_state_snapshot(&case, "echo", Some(Phase::Spec), Some(1), None);
+        assert!(snapshot.constraint_diagnosis.contains_key("scope1"));
     }
 }

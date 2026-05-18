@@ -35,7 +35,7 @@ pub fn assess_model_parity(origin_model: &str, partner_model: &str) -> ModelPari
         return ModelParityCheck {
             origin: origin_model.into(),
             partner: partner_model.into(),
-            delta: "MINOR".into(),
+            delta: ModelParityDelta::MINOR,
             advisory: Some("One or both model tiers are unknown. Treat parity as advisory only.".into()),
         };
     }
@@ -48,19 +48,19 @@ pub fn assess_model_parity(origin_model: &str, partner_model: &str) -> ModelPari
         0 => ModelParityCheck {
             origin: origin_model.into(),
             partner: partner_model.into(),
-            delta: "NONE".into(),
+            delta: ModelParityDelta::NONE,
             advisory: None,
         },
         1 => ModelParityCheck {
             origin: origin_model.into(),
             partner: partner_model.into(),
-            delta: "MINOR".into(),
+            delta: ModelParityDelta::MINOR,
             advisory: Some("Slight analytical weight difference. Monitor for dominance bias.".into()),
         },
         _ => ModelParityCheck {
             origin: origin_model.into(),
             partner: partner_model.into(),
-            delta: "SIGNIFICANT".into(),
+            delta: ModelParityDelta::SIGNIFICANT,
             advisory: None,
         },
     }
@@ -93,26 +93,43 @@ mod tests {
     #[test]
     fn test_assess_parity_same_tier() {
         let p = assess_model_parity("claude-sonnet-4", "claude-sonnet-4");
-        assert_eq!(p.delta, "NONE");
+        assert_eq!(p.delta, ModelParityDelta::NONE);
         assert!(p.advisory.is_none());
     }
 
     #[test]
     fn test_assess_parity_minor_gap() {
         let p = assess_model_parity("claude-sonnet-4", "claude-haiku-3");
-        assert_eq!(p.delta, "MINOR");
+        assert_eq!(p.delta, ModelParityDelta::MINOR);
     }
 
     #[test]
     fn test_assess_parity_significant_gap() {
         let p = assess_model_parity("claude-opus-4", "claude-sonnet-4");
-        assert_eq!(p.delta, "SIGNIFICANT");
+        assert_eq!(p.delta, ModelParityDelta::SIGNIFICANT);
     }
 
     #[test]
     fn test_assess_parity_unknown() {
         let p = assess_model_parity("unknown-model", "claude-sonnet-4");
-        assert_eq!(p.delta, "MINOR");
+        assert_eq!(p.delta, ModelParityDelta::MINOR);
         assert!(p.advisory.is_some());
+    }
+
+    #[test]
+    fn test_model_parity_check_delta_is_enum() {
+        let p = assess_model_parity("claude-opus-4", "claude-opus-4");
+        // Should be NONE (same tier)
+        assert_eq!(p.delta, ModelParityDelta::NONE);
+    }
+
+    #[test]
+    fn test_assess_parity_serde_roundtrip() {
+        let p = assess_model_parity("claude-sonnet-4", "claude-opus-4");
+        let json = serde_json::to_string(&p).unwrap();
+        let restored: ModelParityCheck = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.delta, p.delta);
+        assert_eq!(restored.origin, p.origin);
+        assert_eq!(restored.partner, p.partner);
     }
 }

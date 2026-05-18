@@ -1,7 +1,6 @@
 //! High-level CHP orchestration for finance decision sessions.
 
 use crate::context::ContextEngine;
-use crate::contracts::*;
 use crate::devil::*;
 use crate::models::*;
 use crate::foundation::*;
@@ -9,6 +8,7 @@ use crate::gates::*;
 use crate::parity::*;
 use crate::payloads::*;
 use crate::registry::DecisionRegistry;
+use crate::rounds::MAX_ROUNDS;
 use crate::validators::*;
 
 pub struct CHPReport {
@@ -40,7 +40,7 @@ impl CHPReport {
         if let Some(ref mp) = self.case.model_parity {
             lines.push(format!("- origin: {}", mp.origin));
             lines.push(format!("- partner: {}", mp.partner));
-            lines.push(format!("- delta: {}", mp.delta));
+            lines.push(format!("- delta: {:?}", mp.delta));
             if let Some(ref adv) = mp.advisory {
                 lines.push(format!("- advisory: {}", adv));
             }
@@ -111,6 +111,19 @@ impl CHPOrchestrator {
         // Model parity
         case.model_parity = Some(assess_model_parity(&case.origin_model, &case.partner_model));
 
+        // ModelParityGate check
+        if let Some(ref mp) = case.model_parity {
+            if let Err(msg) = ModelParityGate::check(mp) {
+                case.status = SessionStatus::HALT;
+                case.guard_triggers.push(GuardTrigger {
+                    guard_name: "ModelParityGate".into(),
+                    item: case.title.clone(),
+                    reason: msg.clone(),
+                    severity: "CRITICAL".into(),
+                });
+            }
+        }
+
         // R0 gate
         let scoped = case.dossier.as_ref().map_or(false, |d| !d.scope.is_empty());
         let valid = case.dossier.as_ref().map_or(false, |d| !d.current_state.is_empty());
@@ -128,13 +141,18 @@ impl CHPOrchestrator {
         if let Some(ref mut dossier) = case.dossier {
             dossier.foundation_score = Some(attack.foundation_score);
             case.structural_vulnerabilities = dossier.structural_vulnerabilities.clone();
-            case.vcl_diagnoses = build_vcl_diagnoses(case);
+            case.constraint_diagnoses = build_constraint_diagnoses(case);
         }
 
-        // Status determination
-        if case.context_check.as_ref().map_or(false, |cc| cc.action == "HALT_DUPLICATE") {
+        // Section limits (use defaults)
+        case.section_limits = SectionLimits::default();
+
+        // Status determination (HALT from guard triggers takes precedence)
+        if case.status == SessionStatus::HALT {
+            // Already halted by ModelParityGate or similar — don't override
+        } else if case.context_check.as_ref().map_or(false, |cc| cc.action == "HALT_DUPLICATE") {
             case.status = SessionStatus::HALT;
-        } else if case.model_parity.as_ref().map_or(false, |mp| mp.delta == "SIGNIFICANT") {
+        } else if case.model_parity.as_ref().map_or(false, |mp| mp.delta == ModelParityDelta::SIGNIFICANT) {
             case.status = SessionStatus::HALT;
         } else if r0.verdict == Verdict::HALT {
             case.status = SessionStatus::HALT;
@@ -201,8 +219,9 @@ impl CHPOrchestrator {
         let payload_id = extract_payload_id(partner_packet)
             .ok_or_else(|| String::from("partner packet is missing a payload id"))?;
 
-        if payload_echo.is_empty() || !payload_echo_confirmed("RX", &payload_id, payload_echo) {
-            return Err("partner packet is missing a matching PAYLOAD_ECHO confirmation".into());
+        // PayloadValidator::gate check
+        if let Err(e) = PayloadValidator::gate(payload_echo, "RX", &payload_id) {
+            return Err(e);
         }
 
         let mut incoming_status = match snapshot_status {
@@ -220,6 +239,12 @@ impl CHPOrchestrator {
         let phase_gate = evaluate_phase_gate(round_number, &case.status);
         if phase_gate == Verdict::PHASE_GATE_FAIL {
             case.status = SessionStatus::HALT;
+            case.guard_triggers.push(GuardTrigger {
+                guard_name: "PhaseGate".into(),
+                item: decision_id.into(),
+                reason: "cannot enter implementation before Phase 1 reaches PROVISIONAL_LOCK or LOCKED".into(),
+                severity: "CRITICAL".into(),
+            });
             return Err("cannot enter implementation before Phase 1 reaches PROVISIONAL_LOCK or LOCKED".into());
         }
 
@@ -396,11 +421,11 @@ mod tests {
         let disclosure = make_valid_disclosure();
         let attack = make_valid_attack(85);
 
-        let report = orch.run_initial_session(&mut case, &disclosure, &attack).unwrap();
+        let _report = orch.run_initial_session(&mut case, &disclosure, &attack).unwrap();
         assert_eq!(case.status, SessionStatus::EXPLORING);
         assert!(case.foundation_score.is_some());
-        assert!(!report.initial_packet.is_empty());
-        assert!(report.render().contains("# CHP Session"));
+        assert!(!_report.initial_packet.is_empty());
+        assert!(_report.render().contains("# CHP Session"));
     }
 
     #[test]
@@ -410,7 +435,7 @@ mod tests {
         let disclosure = make_valid_disclosure();
         let attack = make_valid_attack(40);
 
-        let report = orch.run_initial_session(&mut case, &disclosure, &attack).unwrap();
+        let _report = orch.run_initial_session(&mut case, &disclosure, &attack).unwrap();
         assert_eq!(case.status, SessionStatus::REFRAME_REQUIRED);
     }
 
@@ -421,5 +446,76 @@ mod tests {
         let cc = orch._context_check(&case);
         assert_eq!(cc.assessment, "SPARSE");
         assert_eq!(cc.action, "PROCEED");
+    }
+
+    #[test]
+    fn test_run_initial_session_constraint_diagnoses() {
+        let mut orch = CHPOrchestrator::new();
+        let mut case = make_test_case();
+        let disclosure = make_valid_disclosure();
+        let attack = make_valid_attack(85);
+
+        orch.run_initial_session(&mut case, &disclosure, &attack).unwrap();
+        // Should have constraint diagnoses (not VCL)
+        assert!(!case.constraint_diagnoses.is_empty());
+        assert_eq!(case.constraint_diagnoses.len(), 2); // 2 scope items
+    }
+
+    #[test]
+    fn test_run_initial_session_section_limits_set() {
+        let mut orch = CHPOrchestrator::new();
+        let mut case = make_test_case();
+        let disclosure = make_valid_disclosure();
+        let attack = make_valid_attack(85);
+
+        orch.run_initial_session(&mut case, &disclosure, &attack).unwrap();
+        assert_eq!(case.section_limits.max_agreement_lines, 3);
+        assert_eq!(case.section_limits.max_objections, 5);
+    }
+
+    #[test]
+    fn test_run_initial_session_model_parity_gate_halt() {
+        let mut orch = CHPOrchestrator::new();
+        let mut case = make_test_case();
+        case.origin_model = "claude-opus-4".into();
+        case.partner_model = "claude-3-haiku".into(); // SIGNIFICANT gap
+        let disclosure = make_valid_disclosure();
+        let attack = make_valid_attack(85);
+
+        let _report = orch.run_initial_session(&mut case, &disclosure, &attack).unwrap();
+        assert_eq!(case.status, SessionStatus::HALT);
+        assert!(!case.guard_triggers.is_empty());
+        assert!(case.guard_triggers.iter().any(|g| g.guard_name == "ModelParityGate"));
+    }
+
+    #[test]
+    fn test_receive_partner_packet_phase_gate_fail_adds_trigger() {
+        let mut orch = CHPOrchestrator::new();
+        let mut case = make_test_case();
+        let disclosure = make_valid_disclosure();
+        let attack = make_valid_attack(85);
+        orch.run_initial_session(&mut case, &disclosure, &attack).unwrap();
+
+        // Try to receive at round 3 with EXPLORING status → should fail
+        let packet = build_payload_envelope("body", "RX", Some("TEST01")).render();
+        let result = orch.receive_partner_packet(
+            "dc-001", &packet, Phase::Implementation, 3,
+            "[RX] [TEST01] CONFIRMED", "EXPLORING",
+        );
+        assert!(result.is_err());
+        let case = orch.registry.get("dc-001").unwrap();
+        assert!(case.guard_triggers.iter().any(|g| g.guard_name == "PhaseGate"));
+    }
+
+    #[test]
+    fn test_render_shows_model_parity_delta_enum() {
+        let mut orch = CHPOrchestrator::new();
+        let mut case = make_test_case();
+        let disclosure = make_valid_disclosure();
+        let attack = make_valid_attack(85);
+        let report = orch.run_initial_session(&mut case, &disclosure, &attack).unwrap();
+        let rendered = report.render();
+        // Should show delta as enum debug format
+        assert!(rendered.contains("delta:"));
     }
 }
