@@ -21,6 +21,13 @@ members = [
     "crates/cubiczan-swarm-pack",
     "crates/minescope-kernel",
     "crates/metabocommand-kernel",
+    "crates/chainsight-ai",
+    "crates/scope-glacier",
+    "crates/scope-sentinel",
+    "crates/hedge-fund-13f-radar",
+    "crates/scope-vantage",
+    "crates/convergence",
+    "crates/market-sentiment-fedgpt",
 ]
 
 [workspace.package]

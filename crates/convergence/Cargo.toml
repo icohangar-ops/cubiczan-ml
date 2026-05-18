@@ -1,0 +1,18 @@
+[package]
+name = "convergence"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Post-merger integration intelligence — M&A reconciliation and tracking"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+statrs = { workspace = true }
+ndarray = { workspace = true }
+uuid = { workspace = true }
+rand = { workspace = true }

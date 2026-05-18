@@ -1,0 +1,19 @@
+[package]
+name = "market-sentiment-fedgpt"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Fed tone analysis and portfolio risk briefing engine"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+statrs = { workspace = true }
+ndarray = { workspace = true }
+num-traits = { workspace = true }
+num = { workspace = true }
+regex = { workspace = true }

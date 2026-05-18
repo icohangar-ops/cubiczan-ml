@@ -1,0 +1,21 @@
+[package]
+name = "scope-vantage"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Supply chain intelligence — UN Comtrade analytics and resilience scoring"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+statrs = { workspace = true }
+ndarray = { workspace = true }
+num-traits = { workspace = true }
+num = { workspace = true }
+rand = { workspace = true }
+sha3 = { workspace = true }
+hex = { workspace = true }
