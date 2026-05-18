@@ -11,6 +11,12 @@ members = [
     "crates/critmin-oracle",
     "crates/consensus-hardening-protocol",
     "crates/swarmfi-perps",
+    "crates/courtvision-ai",
+    "crates/greenverify-ai",
+    "crates/sec-earnings-workbench",
+    "crates/closed-loop-finance",
+    "crates/minescope-signal",
+    "crates/commodity-price-analyzer",
 ]
 
 [workspace.package]

@@ -1,0 +1,16 @@
+[package]
+name = "closed-loop-finance"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Autonomous closed-loop finance system: Observe-Decide-Execute-Learn cycle with PID control"
+
+[dependencies]
+cubiczan-ml-core = { path = "../cubiczan-ml-core" }
+cubiczan-ml-rl = { path = "../cubiczan-ml-rl" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
