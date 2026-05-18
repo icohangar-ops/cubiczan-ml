@@ -24,8 +24,10 @@ cubiczan-ml/
 │   │   └── core · nlp · dl · rl · tf
 │   ├── finflowrl/                      # FinFlowRL Rust port
 │   │   └── HFT flow-matching RL (PPO, market-making)
-│   └── critmin-oracle/                # CritMin Oracle Rust port
-│       └── risk scoring · sentiment · scaling · keccak256
+│   ├── critmin-oracle/                # CritMin Oracle Rust port
+│   │   └── risk scoring · sentiment · scaling · keccak256
+│   └── consensus-hardening-protocol/    # CHP Rust port
+│       └── state machine · gates · devil's advocate · parity · contracts
 ```
 
 ## Crates
@@ -116,6 +118,24 @@ AI-powered critical minerals supply chain risk oracle, rewritten from Python to 
 | **macro_data** | Macroeconomic indicator generation and FRED API fetching |
 | **pipeline** | Full orchestration: composite risk scoring, demo/live modes, JSON output |
 
+### `consensus-hardening-protocol` — CHP Rust Port
+
+Complete Rust port of the Consensus Hardening Protocol decision-governance layer. Provides state machine, gates, adversarial validation, parity checks, payload envelopes, and orchestration for multi-agent AI systems.
+
+| Module | Highlights |
+|--------|-----------|
+| **models** | Canonical data model: DecisionCase, SessionStatus, Verdict, Dossier, FoundationDisclosure/Attack, DevilsAdvocateRound |
+| **gates** | R0 gate evaluation, phase gate enforcement (Foundation→Spec→Implementation) |
+| **foundation** | Foundation disclosure validation, attack scoring, verdict computation |
+| **parity** | Model tier inference (SMALL/MID/HIGH/FRONTIER), parity gap assessment |
+| **devil** | Devil's advocate construction (Phase 0 + Round 3), VCL diagnosis, vulnerability merging |
+| **payloads** | Payload envelope validation, payload ID generation, echo confirmation |
+| **contracts** | Item agreement scoring, verification checklists, ASCII enforcement, council spawn |
+| **registry** | Decision case registry with search, related-case finding, JSON persistence |
+| **context** | Context engine with entity/event/task tracking, relevance scoring |
+| **validators** | Third-party validation for lock progression (PROVISIONAL_LOCK→LOCKED) |
+| **orchestrator** | Full CHP session orchestration: initial session, partner packet ingestion, report rendering |
+
 ## Quick Start
 
 ### Prerequisites
@@ -134,6 +154,7 @@ cubiczan-ml-dl   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "
 cubiczan-ml-rl   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
 cubiczan-ml-tf   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
 critmin-oracle   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
+consensus-hardening-protocol = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
 ```
 
 ### Build from source
@@ -235,10 +256,10 @@ for episode in 0..500 {
 
 | Metric | Value |
 |--------|-------|
-| Total lines of Rust | ~20,000+ |
-| Source files | 50+ |
-| Crates | 8 |
-| Tests passing | **335 / 335** |
+| Total lines of Rust | ~23,000+ |
+| Source files | 65+ |
+| Crates | 9 |
+| Tests passing | **403 / 403** |
 | Build errors | **0** |
 | Minimum Rust version | 1.80+ (tested 1.95.0) |
 
@@ -253,7 +274,7 @@ This shared ML layer is designed to be integrated into the following Cubiczan ec
 - **minescope-signal** — Mining signal processing and anomaly detection
 - **sec-earnings-workbench** — SEC filing NLP analysis
 - **Stellar-critical-metal-traceability** — Supply chain traceability ML
-- **consensus-hardening-protocol** — Multi-agent decision governance
+- **consensus-hardening-protocol** — Multi-agent decision governance (Rust port complete)
 - **courtvision-ai** — Sports analytics with ML
 - **greenverify-ai** — ESG verification and scoring
 

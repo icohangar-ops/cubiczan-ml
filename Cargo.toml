@@ -9,6 +9,7 @@ members = [
     "crates/cubiczan-ml-py",
     "crates/finflowrl",
     "crates/critmin-oracle",
+    "crates/consensus-hardening-protocol",
 ]
 
 [workspace.package]
