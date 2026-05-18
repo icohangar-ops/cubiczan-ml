@@ -17,6 +17,7 @@ members = [
     "crates/closed-loop-finance",
     "crates/minescope-signal",
     "crates/commodity-price-analyzer",
+    "crates/autonomous-business-os",
 ]
 
 [workspace.package]
