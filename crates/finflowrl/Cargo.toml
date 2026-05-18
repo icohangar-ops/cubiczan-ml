@@ -1,0 +1,15 @@
+[package]
+name = "finflowrl"
+version = "0.1.0"
+edition = "2021"
+authors = ["FinFlowRL Team"]
+license = "MIT"
+description = "Flow-Matching Reinforcement Learning for High-Frequency Trading — pure-Rust port"
+
+[dependencies]
+ndarray = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
