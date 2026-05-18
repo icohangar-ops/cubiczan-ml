@@ -18,8 +18,14 @@ cubiczan-ml/
 │   │   └── models · inference · on_chain · time_series · training
 │   ├── cubiczan-ml-rl/                 # Reinforcement learning
 │   │   └── agents · environment · policy · exploration · backtest
-│   └── cubiczan-ml-tf/                 # TensorFlow bridge
-│       └── session · bridge · models
+│   ├── cubiczan-ml-tf/                 # TensorFlow bridge
+│   │   └── session · bridge · models
+│   ├── cubiczan-ml-py/                 # PyO3 Python bindings
+│   │   └── core · nlp · dl · rl · tf
+│   ├── finflowrl/                      # FinFlowRL Rust port
+│   │   └── HFT flow-matching RL (PPO, market-making)
+│   └── critmin-oracle/                # CritMin Oracle Rust port
+│       └── risk scoring · sentiment · scaling · keccak256
 ```
 
 ## Crates
@@ -88,6 +94,28 @@ Load and run Python-trained TensorFlow/Keras models from Rust. Bridges existing 
 | **bridge** | PyTfBridge for importing Python-trained models, ONNX import/validation, auto-generated Rust wrapper code |
 | **models** | Pre-built interfaces for TF LSTM, Transformer, Classifier, and Risk Model inference |
 
+### `cubiczan-ml-py` — Python Bindings (PyO3)
+
+Zero-copy Rust-to-Python bindings via PyO3 + maturin. Install with `pip install cubiczan-ml` to access all 38 ML APIs directly from Python — no Rust knowledge needed.
+
+### `finflowrl` — FinFlowRL Rust Port
+
+Complete Rust port of the FinFlowRL HFT flow-matching reinforcement learning system. Pure-numpy neural net and PPO trainer rewritten using `cubiczan-ml-rl` + `cubiczan-ml-dl` crates.
+
+### `critmin-oracle` — CritMin Oracle Rust Port
+
+AI-powered critical minerals supply chain risk oracle, rewritten from Python to Rust. Computes on-chain risk scores for lithium, nickel, and cobalt using sentiment analysis, regulatory keyword scoring, and price forecasting.
+
+| Module | Highlights |
+|--------|-----------|
+| **config** | Mineral metadata, scaling constants (match Solidity contract), regulatory keyword weights |
+| **scaling** | On-chain value scaling, keccak256 hashing (Solidity-compatible via sha3 crate) |
+| **sentiment** | Keyword-based NLP sentiment analyzer for SEC filings, regulatory risk scorer |
+| **forecast** | Price forecasting via linear regression on log prices, R-squared confidence |
+| **prices** | Commodity price generation (mock) and Alpha Vantage API fetching (live mode) |
+| **macro_data** | Macroeconomic indicator generation and FRED API fetching |
+| **pipeline** | Full orchestration: composite risk scoring, demo/live modes, JSON output |
+
 ## Quick Start
 
 ### Prerequisites
@@ -105,6 +133,7 @@ cubiczan-ml-nlp  = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "
 cubiczan-ml-dl   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
 cubiczan-ml-rl   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
 cubiczan-ml-tf   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
+critmin-oracle   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
 ```
 
 ### Build from source
@@ -199,15 +228,17 @@ for episode in 0..500 {
 | `anyhow` / `thiserror` | Ergonomic error handling |
 | `chrono` | Date/time for financial time series |
 | `rand` | RNG for exploration strategies |
+| `sha3` / `hex` | Keccak256 hashing (Solidity-compatible) |
+| `reqwest` / `tokio` | Async HTTP for API fetching (FRED, Alpha Vantage) |
 
 ## Stats
 
 | Metric | Value |
 |--------|-------|
-| Total lines of Rust | 17,667 |
-| Source files | 41 |
-| Crates | 5 |
-| Tests passing | **265 / 265** |
+| Total lines of Rust | ~20,000+ |
+| Source files | 50+ |
+| Crates | 8 |
+| Tests passing | **335 / 335** |
 | Build errors | **0** |
 | Minimum Rust version | 1.80+ (tested 1.95.0) |
 
@@ -217,7 +248,8 @@ This shared ML layer is designed to be integrated into the following Cubiczan ec
 
 - **Commodity-Price-Analyzer** — Price prediction and signal generation
 - **closed-loop-finance** — Autonomous finance loop with ML-driven decisions
-- **FinFlowRL** — RL-based trading strategies
+- **FinFlowRL** — RL-based trading strategies (Rust port complete)
+- **critmin-oracle** — Critical minerals blockchain risk oracle (Rust port complete)
 - **minescope-signal** — Mining signal processing and anomaly detection
 - **sec-earnings-workbench** — SEC filing NLP analysis
 - **Stellar-critical-metal-traceability** — Supply chain traceability ML

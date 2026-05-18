@@ -8,6 +8,7 @@ members = [
     "crates/cubiczan-ml-tf",
     "crates/cubiczan-ml-py",
     "crates/finflowrl",
+    "crates/critmin-oracle",
 ]
 
 [workspace.package]
@@ -40,5 +41,8 @@ anyhow = "1"
 thiserror = "2"
 rand = "0.8"
 rand_distr = "0.4"
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
+sha3 = "0.10"
+hex = "0.4"
+futures = "0.3"

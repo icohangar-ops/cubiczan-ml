@@ -1,0 +1,44 @@
+[package]
+name = "critmin-oracle"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "AI-powered critical minerals supply chain risk oracle — Rust port"
+readme = "README.md"
+
+[dependencies]
+# Workspace ML crates
+cubiczan-ml-nlp = { path = "../cubiczan-ml-nlp" }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# HTTP
+reqwest = { workspace = true }
+tokio = { workspace = true }
+
+# Crypto (keccak256 for on-chain compatibility)
+sha3 = { workspace = true }
+hex = { workspace = true }
+
+# Utilities
+chrono = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+# Async
+futures = { workspace = true }
+
+[lib]
+name = "critmin_oracle_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "critmin-oracle"
+path = "src/main.rs"
+
+[features]
+live = []
