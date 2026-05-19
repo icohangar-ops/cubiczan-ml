@@ -15,6 +15,15 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 rayon = { workspace = true }
 
+# Tier 3: BLAS-accelerated mat-vec (uncomment when cmake + openblas-dev available)
+# [dependencies.ndarray]
+# workspace = true
+# features = ["blas"]
+# [dependencies.blas-src]
+# version = "0.10"
+# default-features = false
+# features = ["openblas"]
+
 [dev-dependencies]
 criterion = { workspace = true }
 

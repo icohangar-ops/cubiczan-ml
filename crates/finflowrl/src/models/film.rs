@@ -5,7 +5,7 @@
 ///
 /// where gamma and beta are projected from the conditioning vector.
 
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, Zip};
 use rand::prelude::*;
 use rand_distr::StandardNormal;
 
@@ -56,12 +56,21 @@ impl FiLMLayer {
 
     /// Apply FiLM modulation: `gamma * x + beta`.
     ///
+    /// Uses fused element-wise FMA via `Zip` to avoid temporary allocations
+    /// and enable LLVM auto-vectorization of the `gamma * x + beta` pattern.
+    ///
     /// - `x`: input tensor of shape `(input_dim,)`
     /// - `cond`: conditioning vector of shape `(cond_dim,)`
     pub fn forward(&self, x: &Array1<f64>, cond: &Array1<f64>) -> Array1<f64> {
         let gamma = cond.dot(&self.W_gamma) + &self.b_gamma;
         let beta = cond.dot(&self.W_beta) + &self.b_beta;
-        &gamma * x + &beta
+        // Fused gamma * x + beta — single pass, no temporaries.
+        // LLVM can vectorize this as fused multiply-add (FMA) instructions.
+        let mut out = x.clone();
+        Zip::from(&mut out).and(&gamma).and(&beta).for_each(|o, &g, &b| {
+            *o = g * *o + b;
+        });
+        out
     }
 
     /// Get parameters as a tuple.

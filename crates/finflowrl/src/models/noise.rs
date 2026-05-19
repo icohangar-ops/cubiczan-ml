@@ -53,8 +53,16 @@ impl NoisePolicy {
 
     /// Forward pass to get action mean.
     pub fn forward(&self, obs: &Array1<f64>) -> Array1<f64> {
-        let x = obs.dot(&self.W1) + &self.b1;
-        let x = x.mapv(|v| v.tanh());
+        let mut x = obs.dot(&self.W1) + &self.b1;
+        // SIMD-friendly: manual slice loop for tanh so LLVM can
+        // auto-vectorize through contiguous memory.
+        if let Some(slice) = x.as_slice_mut() {
+            for v in slice.iter_mut() {
+                *v = v.tanh();
+            }
+        } else {
+            x = x.mapv(|v| v.tanh());
+        }
         x.dot(&self.W2) + &self.b2
     }
 

@@ -3,7 +3,7 @@
 /// Lightweight PPO implementation for fine-tuning the MeanFlow policy.
 /// Supports save/load and on-policy rollouts.
 
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, Zip};
 use rand::prelude::*;
 use rand_distr::StandardNormal;
 use std::fs;
@@ -20,11 +20,32 @@ pub enum PpoError {
 }
 
 /// Softmax function for action probabilities.
+///
+/// Uses a manual slice loop for the exp() computation so LLVM can
+/// auto-vectorize through contiguous memory (ndarray's mapv closure
+/// obscures the inner loop from the vectorizer).
 fn softmax(x: &Array1<f64>) -> Array1<f64> {
     let max_val = x.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    let exps: Array1<f64> = x.mapv(|v| (v - max_val).exp());
+    let mut exps = x.clone();
+    // In-place subtraction + exp via contiguous slice
+    if let Some(slice) = exps.as_slice_mut() {
+        for v in slice.iter_mut() {
+            *v = (*v - max_val).exp();
+        }
+    } else {
+        exps = exps.mapv(|v| (v - max_val).exp());
+    }
     let sum_exp: f64 = exps.sum();
-    exps / sum_exp
+    // In-place division
+    if let Some(slice) = exps.as_slice_mut() {
+        let inv_sum = 1.0 / sum_exp;
+        for v in slice.iter_mut() {
+            *v *= inv_sum;
+        }
+    } else {
+        exps = exps / sum_exp;
+    }
+    exps
 }
 
 /// Simple multi-layer perceptron policy network.
@@ -83,7 +104,14 @@ impl MLPPolicy {
         for i in 0..n_layers {
             x = x.dot(&self.weights[i]) + &self.biases[i];
             if i < n_layers - 1 {
-                x = x.mapv(|v| v.tanh());
+                // SIMD-friendly: manual slice loop for tanh.
+                if let Some(slice) = x.as_slice_mut() {
+                    for v in slice.iter_mut() {
+                        *v = v.tanh();
+                    }
+                } else {
+                    x = x.mapv(|v| v.tanh());
+                }
             }
         }
         x

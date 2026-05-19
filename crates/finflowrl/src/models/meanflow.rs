@@ -9,7 +9,7 @@
 ///
 /// where x_0 ~ N(0,I), x_1 is the expert action, and x_t = (1-t)*x_0 + t*x_1.
 
-use ndarray::{Array1, Array2, concatenate, Axis};
+use ndarray::{Array1, Array2, concatenate, Axis, Zip};
 use rand::prelude::*;
 use rand_distr::StandardNormal;
 use std::collections::HashMap;
@@ -128,12 +128,24 @@ impl MeanFlowPolicy {
         for i in 0..n_layers {
             hidden = hidden.dot(&self.vel_weights[i]) + &self.vel_biases[i];
             if i < n_layers - 1 {
-                hidden = hidden.mapv(|v| v.tanh());
-                // Apply FiLM on the last hidden layer
+                // SIMD-friendly: manual slice loop for tanh so LLVM can
+                // auto-vectorize through contiguous memory (ndarray's
+                // mapv closure obscures the inner loop from the vectorizer).
+                if let Some(slice) = hidden.as_slice_mut() {
+                    for v in slice.iter_mut() {
+                        *v = v.tanh();
+                    }
+                } else {
+                    hidden = hidden.mapv(|v| v.tanh());
+                }
+                // Apply FiLM on the last hidden layer — fused element-wise
+                // FMA via Zip avoids two temporary allocations.
                 if i == n_layers - 2 {
                     let gamma = obs.dot(&self.W_film) + &self.b_film;
-                    let gamma = &gamma * &self.film_gamma + &self.film_beta;
-                    hidden = &gamma * &hidden;
+                    let film = &gamma * &self.film_gamma + &self.film_beta;
+                    Zip::from(&mut hidden).and(&film).for_each(|h, &f| {
+                        *h *= f;
+                    });
                 }
             }
         }
@@ -153,7 +165,18 @@ impl MeanFlowPolicy {
         let target_velocity = expert_action - &x_0;
         let pred_velocity = self.velocity_network(&x_t, t, obs);
         let diff = &pred_velocity - &target_velocity;
-        diff.mapv(|v| v * v).mean().unwrap_or(0.0)
+        // SIMD-friendly: manual slice loop for squared differences.
+        let mut sq_sum = 0.0;
+        if let Some(slice) = diff.as_slice() {
+            for &v in slice {
+                sq_sum += v * v;
+            }
+        } else {
+            for &v in diff.iter() {
+                sq_sum += v * v;
+            }
+        }
+        sq_sum / diff.len() as f64
     }
 
     /// Sample action via Euler integration of the flow ODE.
