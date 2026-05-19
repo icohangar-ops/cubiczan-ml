@@ -23,9 +23,7 @@ futures = { workspace = true }
 sha3 = { workspace = true }
 hex = { workspace = true }
 uuid = { workspace = true }
-
-[dev-dependencies]
-tokio = { workspace = true, features = ["rt", "macros"] }
+rayon = { workspace = true }
 
 [lib]
 name = "swarmfi_perps"
@@ -35,5 +33,13 @@ path = "src/lib.rs"
 name = "swarmfi-perps"
 path = "src/main.rs"
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }
+criterion = { workspace = true }
+
 [features]
 default = []
+
+[[bench]]
+name = "swarmfi_bench"
+harness = false

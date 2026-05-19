@@ -28,6 +28,7 @@ members = [
     "crates/scope-vantage",
     "crates/convergence",
     "crates/market-sentiment-fedgpt",
+    "crates/cubiczan-superserve",
 ]
 
 [workspace.package]
@@ -53,7 +54,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 bincode = "1"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 anyhow = "1"
@@ -66,3 +67,39 @@ sha3 = "0.10"
 hex = "0.4"
 futures = "0.3"
 uuid = { version = "1", features = ["v4", "serde"] }
+eventsource-stream = "0.2"
+cubiczan-superserve = { path = "crates/cubiczan-superserve" }
+criterion = { version = "0.5", features = ["html_reports"] }
+rayon = "1.10"
+
+# ============================================================================
+# Tier 2: Optimized release profiles
+# ============================================================================
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+debug-assertions = false
+overflow-checks = false
+
+# Tier 2: Lean release for CI / fast builds (still optimized)
+[profile.release-ci]
+inherits = "release"
+lto = "thin"
+codegen-units = 4
+strip = false
+
+# Tier 3: Max throughput (no strip, keeps symbols for profiling)
+[profile.release-bench]
+inherits = "release"
+strip = false
+debug = true
+lto = "fat"
+codegen-units = 1
+
+[profile.bench]
+opt-level = 3
+debug = true

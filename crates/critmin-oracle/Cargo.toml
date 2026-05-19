@@ -40,5 +40,12 @@ path = "src/lib.rs"
 name = "critmin-oracle"
 path = "src/main.rs"
 
+[dev-dependencies]
+criterion = { workspace = true }
+
 [features]
 live = []
+
+[[bench]]
+name = "oracle_bench"
+harness = false

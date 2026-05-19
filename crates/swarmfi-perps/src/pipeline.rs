@@ -3,7 +3,7 @@
 //! Provides `build_market_data_bundle` (mock data for offline analysis),
 //! `run_swarm_analysis` (end-to-end pipeline), and mock data generators for testing.
 
-use crate::agents::run_all_agents;
+use crate::agents::{run_all_agents, run_all_agents_parallel};
 use crate::consensus::run_consensus;
 use crate::math::parse_f64_or_zero;
 use crate::types::*;
@@ -15,6 +15,15 @@ use crate::types::*;
 /// 3. Return the consensus result
 pub fn run_swarm_analysis(market: &str, data: &MarketDataBundle, previous_board: Option<&StigmergyBoard>) -> ConsensusResult {
     let votes = run_all_agents(data);
+    run_consensus(votes, market, previous_board)
+}
+
+/// Run the full swarm analysis pipeline using parallel agent execution.
+///
+/// Identical to `run_swarm_analysis` but uses `run_all_agents_parallel`
+/// to evaluate the 8 core agents concurrently via rayon.
+pub fn run_swarm_analysis_parallel(market: &str, data: &MarketDataBundle, previous_board: Option<&StigmergyBoard>) -> ConsensusResult {
+    let votes = run_all_agents_parallel(data);
     run_consensus(votes, market, previous_board)
 }
 
@@ -256,5 +265,30 @@ mod tests {
 
         let result = run_swarm_analysis("BTC-USD", &data, Some(&prev));
         assert!(result.stigmergy_board.previous_signals.is_some());
+    }
+
+    #[test]
+    fn test_parallel_pipeline_matches_sequential() {
+        let data = generate_mock_market_data("BTC-USD");
+        let seq_result = run_swarm_analysis("BTC-USD", &data, None);
+        let par_result = run_swarm_analysis_parallel("BTC-USD", &data, None);
+
+        assert_eq!(seq_result.market, par_result.market);
+        assert_eq!(seq_result.signal, par_result.signal);
+        assert!(
+            (seq_result.confidence - par_result.confidence).abs() < 1e-10,
+            "Confidence mismatch: {} vs {}", seq_result.confidence, par_result.confidence
+        );
+        assert_eq!(seq_result.agent_votes.len(), par_result.agent_votes.len());
+        for i in 0..seq_result.agent_votes.len() {
+            assert_eq!(
+                seq_result.agent_votes[i].agent_type, par_result.agent_votes[i].agent_type,
+                "Agent type mismatch at index {}", i
+            );
+            assert_eq!(
+                seq_result.agent_votes[i].signal, par_result.agent_votes[i].signal,
+                "Signal mismatch at index {}", i
+            );
+        }
     }
 }

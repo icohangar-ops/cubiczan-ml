@@ -5,6 +5,7 @@
 
 use crate::math::{clamp, parse_f64_or_zero, sma, std_dev};
 use crate::types::*;
+use rayon::prelude::*;
 
 // ── Core Agents ──────────────────────────────────────────────────
 
@@ -724,18 +725,52 @@ pub const ALL_AGENT_TYPES: &[&str] = &[
     "SentimentAgent",
 ];
 
-/// Run all 9 agents on market data. Returns all 9 votes.
+/// Agent function type alias.
+type AgentFn = fn(&MarketDataBundle) -> AgentVote;
+
+/// The 8 core agent functions in canonical order.
+///
+/// Used by both sequential and parallel runners to ensure
+/// the same agent ordering and determinism.
+const CORE_AGENT_FNS: [AgentFn; 8] = [
+    funding_agent,
+    momentum_agent,
+    volatility_agent,
+    volume_agent,
+    orderbook_agent,
+    liquidation_agent,
+    mean_reversion_agent,
+    trend_agent,
+];
+
+/// Run all 9 agents on market data (sequential). Returns all 9 votes.
 pub fn run_all_agents(data: &MarketDataBundle) -> Vec<AgentVote> {
-    let core_votes = vec![
-        funding_agent(data),
-        momentum_agent(data),
-        volatility_agent(data),
-        volume_agent(data),
-        orderbook_agent(data),
-        liquidation_agent(data),
-        mean_reversion_agent(data),
-        trend_agent(data),
-    ];
+    let core_votes: Vec<AgentVote> = CORE_AGENT_FNS
+        .iter()
+        .map(|&agent_fn| agent_fn(data))
+        .collect();
+
+    // SentimentAgent runs last with access to all core votes
+    let sentiment_vote = sentiment_agent(data, &core_votes);
+
+    let mut all = core_votes;
+    all.push(sentiment_vote);
+    all
+}
+
+/// Run all 9 agents on market data using rayon parallel iteration.
+///
+/// The 8 core agents run in parallel (they are pure functions with
+/// no shared mutable state). The SentimentAgent then runs sequentially
+/// on the collected core votes.
+///
+/// Results are guaranteed to be in the same order as `run_all_agents`
+/// because `par_iter()` on a slice preserves element ordering.
+pub fn run_all_agents_parallel(data: &MarketDataBundle) -> Vec<AgentVote> {
+    let core_votes: Vec<AgentVote> = CORE_AGENT_FNS
+        .par_iter()
+        .map(|&agent_fn| agent_fn(data))
+        .collect();
 
     // SentimentAgent runs last with access to all core votes
     let sentiment_vote = sentiment_agent(data, &core_votes);
@@ -974,5 +1009,36 @@ mod tests {
     fn test_core_agents_length() {
         assert_eq!(CORE_AGENTS.len(), 8);
         assert_eq!(ALL_AGENT_TYPES.len(), 9);
+    }
+
+    #[test]
+    fn test_parallel_matches_sequential() {
+        let bundle = make_test_bundle();
+        let seq_votes = run_all_agents(&bundle);
+        let par_votes = run_all_agents_parallel(&bundle);
+
+        assert_eq!(seq_votes.len(), par_votes.len(), "Vote count mismatch");
+        assert_eq!(seq_votes.len(), 9, "Expected 9 votes");
+
+        for i in 0..seq_votes.len() {
+            assert_eq!(
+                seq_votes[i].agent_type, par_votes[i].agent_type,
+                "Agent type mismatch at index {}", i
+            );
+            assert_eq!(
+                seq_votes[i].signal, par_votes[i].signal,
+                "Signal mismatch for {} at index {}", seq_votes[i].agent_type, i
+            );
+            assert!(
+                (seq_votes[i].confidence - par_votes[i].confidence).abs() < 1e-10,
+                "Confidence mismatch for {} at index {}: {} vs {}",
+                seq_votes[i].agent_type, i,
+                seq_votes[i].confidence, par_votes[i].confidence
+            );
+            assert_eq!(
+                seq_votes[i].reasoning, par_votes[i].reasoning,
+                "Reasoning mismatch for {} at index {}", seq_votes[i].agent_type, i
+            );
+        }
     }
 }

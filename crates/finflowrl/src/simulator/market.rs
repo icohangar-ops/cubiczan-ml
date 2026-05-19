@@ -5,6 +5,7 @@
 ///   - Order arrivals follow a self-exciting Hawkes process
 ///   - Supports configurable spread, volatility, and intensity parameters
 
+use rayon::prelude::*;
 use rand::prelude::*;
 use rand_distr::{Normal, Poisson, StandardNormal};
 
@@ -295,6 +296,43 @@ mod tests {
                 d1.mid_prices[i],
                 d2.mid_prices[i]
             );
+        }
+    }
+
+    #[test]
+    fn test_parallel_simulations_match_sequential() {
+        let seeds: Vec<u64> = vec![10, 20, 30, 40, 50];
+        let n_steps = 100;
+
+        // Sequential
+        let seq_results: Vec<SimulationData> = seeds
+            .iter()
+            .map(|&seed| {
+                let mut sim = MarketSimulator::new(seed);
+                sim.simulate(n_steps)
+            })
+            .collect();
+
+        // Parallel
+        let par_results: Vec<SimulationData> = seeds
+            .par_iter()
+            .map(|&seed| {
+                let mut sim = MarketSimulator::new(seed);
+                sim.simulate(n_steps)
+            })
+            .collect();
+
+        assert_eq!(seq_results.len(), par_results.len());
+        for (i, (s, p)) in seq_results.iter().zip(par_results.iter()).enumerate() {
+            assert_eq!(s.mid_prices.len(), p.mid_prices.len(),
+                "Length mismatch at seed index {}", i);
+            for j in 0..s.mid_prices.len() {
+                assert!(
+                    (s.mid_prices[j] - p.mid_prices[j]).abs() < 1e-10,
+                    "Price mismatch at seed index {}, step {}: {} vs {}",
+                    i, j, s.mid_prices[j], p.mid_prices[j]
+                );
+            }
         }
     }
 }

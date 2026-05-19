@@ -64,7 +64,7 @@ pub enum ModelTier {
 }
 
 // ============================================================================
-// Constraint Altitude Types (replaces VCL)
+// Constraint Altitude Types
 // ============================================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

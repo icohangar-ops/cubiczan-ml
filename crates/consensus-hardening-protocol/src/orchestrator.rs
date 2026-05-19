@@ -456,7 +456,7 @@ mod tests {
         let attack = make_valid_attack(85);
 
         orch.run_initial_session(&mut case, &disclosure, &attack).unwrap();
-        // Should have constraint diagnoses (not VCL)
+        // Should have constraint diagnoses
         assert!(!case.constraint_diagnoses.is_empty());
         assert_eq!(case.constraint_diagnoses.len(), 2); // 2 scope items
     }

@@ -36,3 +36,6 @@ pub use contracts::*;
 pub use orchestrator::*;
 pub use context::*;
 pub use parser::*;
+
+#[cfg(feature = "superserve")]
+pub mod superserve_bridge;

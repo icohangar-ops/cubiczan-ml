@@ -15,10 +15,21 @@ thiserror = { workspace = true }
 rand = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 tracing = { workspace = true }
+cubiczan-superserve = { path = "../cubiczan-superserve", optional = true }
+tokio = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
 
 [lib]
 name = "chp"
 path = "src/lib.rs"
 
+[dev-dependencies]
+criterion = { workspace = true }
+
 [features]
 default = []
+superserve = ["dep:cubiczan-superserve", "dep:tokio", "dep:reqwest"]
+
+[[bench]]
+name = "chp_bench"
+harness = false
