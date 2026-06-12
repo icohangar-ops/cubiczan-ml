@@ -27,9 +27,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Cubiczan/cubiczan-ml"
-Repository = "https://github.com/Cubiczan/cubiczan-ml"
-Documentation = "https://github.com/Cubiczan/cubiczan-ml#readme"
+Homepage = "https://github.com/icohangar-ops/cubiczan-ml"
+Repository = "https://github.com/icohangar-ops/cubiczan-ml"
+Documentation = "https://github.com/icohangar-ops/cubiczan-ml#readme"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]

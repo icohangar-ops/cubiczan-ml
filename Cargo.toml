@@ -36,7 +36,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Shyam Desigan <sam@cubiczan.com>"]
 license = "MIT"
-repository = "https://github.com/cubiczan/cubiczan-ml"
+repository = "https://github.com/icohangar-ops/cubiczan-ml"
 description = "Shared Rust ML layer for Cubiczan AI/DeFi/Finance ecosystem"
 
 [workspace.dependencies]

@@ -100,17 +100,17 @@ Load and run Python-trained TensorFlow/Keras models from Rust. Bridges existing 
 ```toml
 # In your Cargo.toml
 [dependencies]
-cubiczan-ml-core = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
-cubiczan-ml-nlp  = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
-cubiczan-ml-dl   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
-cubiczan-ml-rl   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
-cubiczan-ml-tf   = { git = "https://github.com/Cubiczan/cubiczan-ml", branch = "main" }
+cubiczan-ml-core = { git = "https://github.com/icohangar-ops/cubiczan-ml", branch = "main" }
+cubiczan-ml-nlp  = { git = "https://github.com/icohangar-ops/cubiczan-ml", branch = "main" }
+cubiczan-ml-dl   = { git = "https://github.com/icohangar-ops/cubiczan-ml", branch = "main" }
+cubiczan-ml-rl   = { git = "https://github.com/icohangar-ops/cubiczan-ml", branch = "main" }
+cubiczan-ml-tf   = { git = "https://github.com/icohangar-ops/cubiczan-ml", branch = "main" }
 ```
 
 ### Build from source
 
 ```bash
-git clone https://github.com/Cubiczan/cubiczan-ml.git
+git clone https://github.com/icohangar-ops/cubiczan-ml.git
 cd cubiczan-ml
 cargo build
 cargo test
