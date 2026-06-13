@@ -1,6 +1,8 @@
 //! Macroeconomic data fetching and mock generation.
 
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "live")]
+use resilient_call::{retry, with_timeout, RetryPolicy};
 
 /// Macro economic indicators.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,7 +51,19 @@ pub async fn fetch_fred_macro_data(
         "https://api.stlouisfed.org/fred/series/observations?series_id=WPU101&api_key={}&file_type=json&sort_order=desc&limit=2",
         api_key
     );
-    let resp: serde_json::Value = client.get(&ppi_url).send().await?.json().await?;
+    let resp: serde_json::Value = with_timeout(
+        retry(
+            || async {
+                let r = client.get(&ppi_url).send().await?;
+                r.error_for_status()?.json::<serde_json::Value>().await
+            },
+            &RetryPolicy::with_max_attempts(4),
+            crate::prices::is_retryable_reqwest,
+        ),
+        std::time::Duration::from_secs(20),
+    )
+    .await
+    .map_err(|e| anyhow::anyhow!("FRED PPI fetch failed: {e}"))?;
     if let Some(observations) = resp.get("observations").and_then(|v| v.as_array()) {
         if observations.len() >= 2 {
             let current = observations[0]["value"].as_str().and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
@@ -64,7 +78,19 @@ pub async fn fetch_fred_macro_data(
         "https://api.stlouisfed.org/fred/series/observations?series_id=IPMAN&api_key={}&file_type=json&sort_order=desc&limit=2",
         api_key
     );
-    let resp: serde_json::Value = client.get(&ip_url).send().await?.json().await?;
+    let resp: serde_json::Value = with_timeout(
+        retry(
+            || async {
+                let r = client.get(&ip_url).send().await?;
+                r.error_for_status()?.json::<serde_json::Value>().await
+            },
+            &RetryPolicy::with_max_attempts(4),
+            crate::prices::is_retryable_reqwest,
+        ),
+        std::time::Duration::from_secs(20),
+    )
+    .await
+    .map_err(|e| anyhow::anyhow!("FRED industrial production fetch failed: {e}"))?;
     if let Some(observations) = resp.get("observations").and_then(|v| v.as_array()) {
         if observations.len() >= 2 {
             let current = observations[0]["value"].as_str().and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);

@@ -1,0 +1,18 @@
+[package]
+name = "resilient-call"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Resilience primitives: async retry with full-jitter exponential backoff, tokio timeout wrapper, CockroachDB serializable-retry (SQLSTATE 40001), and a file-backed idempotency ledger. Vendored from github.com/icohangar-ops/cubiczan-resilience (rust/)."
+
+[dependencies]
+tokio = { workspace = true }
+rand = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[lib]
+name = "resilient_call"
+path = "src/lib.rs"

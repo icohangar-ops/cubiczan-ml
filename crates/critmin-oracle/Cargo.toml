@@ -32,6 +32,9 @@ tracing = { workspace = true }
 # Async
 futures = { workspace = true }
 
+# Resilience (retry + timeout) — vendored from cubiczan-resilience
+resilient-call = { workspace = true }
+
 [lib]
 name = "critmin_oracle_lib"
 path = "src/lib.rs"

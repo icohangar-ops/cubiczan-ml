@@ -4,7 +4,9 @@
 //! No authentication required. Base URL: https://indexer.v4prod.dydx.exchange
 
 use crate::types::*;
+use resilient_call::RetryPolicy;
 use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
 
 const BASE_URL: &str = "https://indexer.v4prod.dydx.exchange";
 
@@ -139,25 +141,67 @@ impl DydxClient {
         }
     }
 
+    /// Issue a blocking GET and decode JSON, retrying transient failures with
+    /// exponential backoff + full jitter.
+    ///
+    /// The async [`resilient_call::retry`] cannot be used here because this is a
+    /// `reqwest::blocking` client with no surrounding tokio runtime, so we drive
+    /// the loop synchronously while reusing [`RetryPolicy`]'s jittered backoff
+    /// schedule. Retries cover connection/timeout errors and 5xx / 429
+    /// responses; other 4xx (and decode errors) are terminal and surface
+    /// immediately.
+    fn get_json<T: DeserializeOwned>(&self, url: &str) -> anyhow::Result<T> {
+        let policy = RetryPolicy::with_max_attempts(4);
+        let max = policy.max_attempts.max(1);
+        let mut attempt: u32 = 0;
+        loop {
+            let outcome = self
+                .client
+                .get(url)
+                .send()
+                .and_then(|r| r.error_for_status())
+                .and_then(|r| r.json::<T>());
+
+            match outcome {
+                Ok(v) => return Ok(v),
+                Err(e) => {
+                    let retryable = e.is_connect()
+                        || e.is_timeout()
+                        || e.is_request()
+                        || matches!(
+                            e.status(),
+                            Some(s) if s.is_server_error()
+                                || s == reqwest::StatusCode::TOO_MANY_REQUESTS
+                        );
+                    attempt += 1;
+                    if !retryable || attempt >= max {
+                        return Err(e.into());
+                    }
+                    let delay = policy.jittered_delay(attempt - 1);
+                    if !delay.is_zero() {
+                        std::thread::sleep(delay);
+                    }
+                }
+            }
+        }
+    }
+
     /// Fetch all perpetual markets.
     pub fn get_perpetual_markets(&self) -> anyhow::Result<PerpetualMarketsResponse> {
         let url = format!("{}/v4/perpetualMarkets", self.base_url);
-        let resp: PerpetualMarketsResponse = self.client.get(&url).send()?.json()?;
-        Ok(resp)
+        self.get_json(&url)
     }
 
     /// Fetch the orderbook for a market.
     pub fn get_orderbook(&self, market: &str) -> anyhow::Result<OrderbookResponse> {
         let url = format!("{}/v4/orderbook/{}", self.base_url, market);
-        let resp: OrderbookResponse = self.client.get(&url).send()?.json()?;
-        Ok(resp)
+        self.get_json(&url)
     }
 
     /// Fetch recent trades for a market.
     pub fn get_trades(&self, market: &str, limit: u32) -> anyhow::Result<TradesResponse> {
         let url = format!("{}/v4/trades/{}?limit={}", self.base_url, market, limit);
-        let resp: TradesResponse = self.client.get(&url).send()?.json()?;
-        Ok(resp)
+        self.get_json(&url)
     }
 
     /// Fetch OHLCV candles for a market.
@@ -166,29 +210,25 @@ impl DydxClient {
             "{}/v4/candles/{}?resolution={}&limit={}",
             self.base_url, market, resolution, limit
         );
-        let resp: CandlesResponse = self.client.get(&url).send()?.json()?;
-        Ok(resp)
+        self.get_json(&url)
     }
 
     /// Fetch historical funding rates for a market.
     pub fn get_historical_funding(&self, market: &str, limit: u32) -> anyhow::Result<HistoricalFundingResponse> {
         let url = format!("{}/v4/historicalFunding/{}?limit={}", self.base_url, market, limit);
-        let resp: HistoricalFundingResponse = self.client.get(&url).send()?.json()?;
-        Ok(resp)
+        self.get_json(&url)
     }
 
     /// Fetch sparklines for a market.
     pub fn get_sparklines(&self, market: &str) -> anyhow::Result<SparklineResponse> {
         let url = format!("{}/v4/sparklines/{}", self.base_url, market);
-        let resp: SparklineResponse = self.client.get(&url).send()?.json()?;
-        Ok(resp)
+        self.get_json(&url)
     }
 
     /// Fetch the current block height.
     pub fn get_height(&self) -> anyhow::Result<HeightResponse> {
         let url = format!("{}/v4/height", self.base_url);
-        let resp: HeightResponse = self.client.get(&url).send()?.json()?;
-        Ok(resp)
+        self.get_json(&url)
     }
 }
 

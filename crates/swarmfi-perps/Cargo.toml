@@ -24,6 +24,7 @@ sha3 = { workspace = true }
 hex = { workspace = true }
 uuid = { workspace = true }
 rayon = { workspace = true }
+resilient-call = { workspace = true }
 
 [lib]
 name = "swarmfi_perps"

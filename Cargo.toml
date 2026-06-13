@@ -29,6 +29,7 @@ members = [
     "crates/convergence",
     "crates/market-sentiment-fedgpt",
     "crates/cubiczan-superserve",
+    "crates/resilient-call",
 ]
 
 [workspace.package]
@@ -69,6 +70,7 @@ futures = "0.3"
 uuid = { version = "1", features = ["v4", "serde"] }
 eventsource-stream = "0.2"
 cubiczan-superserve = { path = "crates/cubiczan-superserve" }
+resilient-call = { path = "crates/resilient-call" }
 criterion = { version = "0.5", features = ["html_reports"] }
 rayon = "1.10"
 

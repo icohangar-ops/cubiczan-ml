@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 use crate::config::MINERALS;
+#[cfg(feature = "live")]
+use resilient_call::{retry, with_timeout, RetryPolicy};
 
 /// Price data for a single mineral.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,6 +53,21 @@ fn pseudo_random(seed: u64, mineral: &str) -> f64 {
     (s >> 16) as f64 / 65_536.0
 }
 
+/// Classify a `reqwest::Error` as retryable (transient) or terminal.
+///
+/// Transient: connection failures, timeouts, and 5xx / 429 responses.
+/// Terminal: other 4xx (bad symbol/API key) and decode errors.
+#[cfg(feature = "live")]
+pub(crate) fn is_retryable_reqwest(e: &reqwest::Error) -> bool {
+    if e.is_connect() || e.is_timeout() || e.is_request() {
+        return true;
+    }
+    match e.status() {
+        Some(s) => s.is_server_error() || s == reqwest::StatusCode::TOO_MANY_REQUESTS,
+        None => false,
+    }
+}
+
 /// Fetch live commodity prices from Alpha Vantage API.
 #[cfg(feature = "live")]
 pub async fn fetch_alpha_vantage_prices(
@@ -60,13 +77,28 @@ pub async fn fetch_alpha_vantage_prices(
     let mut results = Vec::new();
     let now = chrono::Utc::now().to_rfc3339();
 
-    for &(mineral, config) in MINERALS {
+    for &(mineral, ref config) in MINERALS {
         let url = format!(
             "https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY&symbol={}&apikey={}",
             config.alpha_vantage_symbol, api_key
         );
 
-        let resp: serde_json::Value = client.get(&url).send().await?.json().await?;
+        // Retry transient failures (connection/timeout/5xx/429) with
+        // backoff + jitter, under a per-request deadline. Terminal 4xx
+        // (e.g. bad symbol/key) surface immediately without retrying.
+        let resp: serde_json::Value = with_timeout(
+            retry(
+                || async {
+                    let r = client.get(&url).send().await?;
+                    r.error_for_status()?.json::<serde_json::Value>().await
+                },
+                &RetryPolicy::with_max_attempts(4),
+                is_retryable_reqwest,
+            ),
+            std::time::Duration::from_secs(20),
+        )
+        .await
+        .map_err(|e| anyhow::anyhow!("Alpha Vantage fetch failed: {e}"))?;
 
         if let Some(ts) = resp.get("Monthly Time Series").and_then(|v| v.as_object()) {
             let mut dates: Vec<_> = ts.keys().collect();
