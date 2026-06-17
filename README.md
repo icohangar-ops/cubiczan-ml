@@ -245,6 +245,26 @@ ESG analysis with greenwashing detection, green bond verification, and carbon cr
 | **verification** | Greenwashing detection, evidence quality, cross-reference, red flags |
 | **bonds** | Green bond impact, greenium analysis, carbon credit quality, additionality |
 
+### Additional Domain Crates
+
+The workspace also includes the following specialized crates:
+
+| Crate | Description |
+|-------|-------------|
+| `autonomous-business-os` | Security-critical core for an Autonomous Business OS: approval engine, audit trail, rate limits, circuit breakers, signed event ledger |
+| `cubiczan-swarm-pack` | Swarm intelligence core: DAG planning, stigmergic coordination, governance policy engine, LMSR consensus, Solana CLI classification |
+| `minescope-kernel` | Pure computation kernels for mineral prospectivity scoring, risk assessment, and price simulation |
+| `metabocommand-kernel` | Pure computation kernels for commerce escalation, velocity scoring, and CSV generation |
+| `chainsight-ai` | On-chain anomaly detection engine for DeFi ecosystems |
+| `scope-glacier` | Energy markets intelligence — EIA data analytics and forecasting |
+| `scope-sentinel` | REIT analytics intelligence — SEC EDGAR analysis and portfolio signals |
+| `hedge-fund-13f-radar` | Hedge fund 13F filing analysis — conviction tracking and sector rotation |
+| `scope-vantage` | Supply chain intelligence — UN Comtrade analytics and resilience scoring |
+| `convergence` | Post-merger integration intelligence — M&A reconciliation and tracking |
+| `market-sentiment-fedgpt` | Fed tone analysis and portfolio risk briefing engine |
+| `cubiczan-superserve` | Typed Rust client for the Superserve.ai persistent sandbox API |
+| `resilient-call` | Resilience primitives: async retry with exponential backoff, timeout wrappers, serializable-retry, and a file-backed idempotency ledger |
+
 ## Quick Start
 
 ### Prerequisites
@@ -368,7 +388,7 @@ for episode in 0..500 {
 |--------|-------|
 | Total lines of Rust | ~61,000+ |
 | Source files | 130+ |
-| Crates | 16 |
+| Crates | 29 |
 | Tests passing | **1,515 / 1,515** |
 | Build errors | **0** |
 | Minimum Rust version | 1.80+ (tested 1.95.0) |
